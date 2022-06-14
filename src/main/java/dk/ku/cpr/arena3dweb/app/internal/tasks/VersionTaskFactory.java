@@ -1,9 +1,10 @@
 package dk.ku.cpr.arena3dweb.app.internal.tasks;
 
 import org.cytoscape.work.AbstractTaskFactory;
+import org.cytoscape.work.TaskFactory;
 import org.cytoscape.work.TaskIterator;
 
-public class VersionTaskFactory extends AbstractTaskFactory {
+public class VersionTaskFactory extends AbstractTaskFactory implements TaskFactory {
 
 	final String version;
 	public VersionTaskFactory(final String version) {
