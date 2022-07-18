@@ -38,6 +38,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 	final private CyServiceRegistrar reg;
 	private CyNetworkView netView;
 	
+	private static int limitUniqueAttributes = 10;	
 	private boolean doFullEncoding = true;
 	
 	@Tunable(description = "Network to send", 
@@ -320,7 +321,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			}
 			// TODO: filter for empty strings
 			// System.out.println(colValues.size());
-			if (colValues.size() > 1 && colValues.size() <= 5) {
+			if (colValues.size() > 1 && colValues.size() <= limitUniqueAttributes) {
 					showList.add(col);
 			}
 		}
