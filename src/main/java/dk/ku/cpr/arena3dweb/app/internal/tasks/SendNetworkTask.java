@@ -201,12 +201,14 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			// Node color
 			Paint node_color = view.getVisualProperty(BasicVisualLexicon.NODE_FILL_COLOR);
 			// String hex = "#"+Integer.toHexString(Color.decode(node_color.toString()).getRGB()).substring(2);
-			System.out.println("color: " + BasicVisualLexicon.NODE_FILL_COLOR.toSerializableString(node_color));
+			// System.out.println("color: " + BasicVisualLexicon.NODE_FILL_COLOR.toSerializableString(node_color));
 			json_node.put("color", BasicVisualLexicon.NODE_FILL_COLOR.toSerializableString(node_color));
 
+			// TODO: decide what to put as URL
 			// System.out.println("url: ");
 			json_node.put("url", "");
 
+			// TODO: decide what to put as description
 			// System.out.println("descr: ");
 			json_node.put("descr", "");
 			
@@ -342,7 +344,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		return s;
 	}
 
-	
+	// TODO: do we keep these as defaults?
 	private JSONObject setupJsonNetwork() {
 		Map<String, String> json_scene = new LinkedHashMap<String, String>();
 		json_scene.put("position_x", "0");
@@ -361,6 +363,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		return jsonObjectNetwork;
 	}
 	
+	// TODO: how to separate layers from each other? on our side or not?
 	private void addLayersToJsonNetwork(JSONObject jsonObjectNetwork, Set<String> layers) {
 		JSONArray json_layers = new JSONArray();
 		Map<String, String> json_layer = null;
