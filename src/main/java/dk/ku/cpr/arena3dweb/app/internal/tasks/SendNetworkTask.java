@@ -1,11 +1,18 @@
 package dk.ku.cpr.arena3dweb.app.internal.tasks;
 
+import java.awt.Desktop;
 import java.awt.Paint;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.cytoscape.application.CyApplicationManager;
@@ -31,7 +38,13 @@ import org.cytoscape.work.AbstractTask;
 import org.cytoscape.work.ObservableTask;
 import org.cytoscape.work.TaskMonitor;
 import org.cytoscape.work.Tunable;
+import org.cytoscape.work.TaskMonitor.Level;
 import org.cytoscape.work.util.ListSingleSelection;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+
+import dk.ku.cpr.arena3dweb.app.internal.io.ConnectionException;
+import dk.ku.cpr.arena3dweb.app.internal.io.HttpUtils;
 
 public class SendNetworkTask extends AbstractTask implements ObservableTask {
 
@@ -88,6 +101,9 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 				}
 			}
 		}
+
+		// setup json object with basics
+		JSONObject jsonNet = setupJsonNetwork();
 		
 		// get the layers 
 		CyColumn colLayers = tableColumn.getSelectedValue();
@@ -103,6 +119,8 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			}
 		}
 		monitor.setStatusMessage("Network will contain " + layers.size() + " layers.");
+		// add layers to json object
+		addLayersToJsonNetwork(jsonNet, layers);
 		
 		// get the visual style and locked node size property
 		boolean lockedNodeSize = false;
@@ -115,98 +133,168 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		}
 
 		// go over all nodes and save info
-		HashMap<CyNode, String> nodeNames = new HashMap<CyNode, String>();
+		HashMap<CyNode, String> nodeLayerNames = new HashMap<CyNode, String>();
+		JSONArray json_nodes = new JSONArray();
+		Map<String, String> json_node = null;
 		for (CyNode node : network.getNodeList()) {
 			if (netView == null || !network.containsNode(node)) 
 				continue;
 
+			// init map for saving nodes
+			json_node = new LinkedHashMap<String, String>();
+			
 			View<CyNode> view = netView.getNodeView(node);
 			// Node name
 			// System.out.println("id=" + node.getSUID());
 			// System.out.println("name=" + encode(getRowFromNetOrRoot(network, node, null).get(CyNetwork.NAME, String.class)));
 			String node_label = view.getVisualProperty(BasicVisualLexicon.NODE_LABEL);
-			System.out.println("name: " + node_label);
-			nodeNames.put(node, node_label);
+			// System.out.println("name: " + node_label);
+			json_node.put("name", node_label);
 			
 			// Node layer
-			if (colLayerClass.equals(String.class))
-				System.out.println("layer: " + encode(getRowFromNetOrRoot(network, node, null).get(colLayerName, String.class)));
-			else if (colLayerClass.equals(Integer.class))
-				System.out.println("layer: " + encode(getRowFromNetOrRoot(network, node, null).get(colLayerName, Integer.class).toString()));
+			// TODO: how to handle empty layers? currently, ignore them (influences layers, nodes and edges)
+			String nodeLayer = "1";
+			if (colLayerClass.equals(String.class)) {
+				// System.out.println("layer: " + encode(getRowFromNetOrRoot(network, node, null).get(colLayerName, String.class)));
+				nodeLayer = encode(getRowFromNetOrRoot(network, node, null).get(colLayerName, String.class));
+			} else if (colLayerClass.equals(Integer.class)) {
+				// System.out.println("layer: " + encode(getRowFromNetOrRoot(network, node, null).get(colLayerName, Integer.class).toString()));
+				nodeLayer = encode(getRowFromNetOrRoot(network, node, null).get(colLayerName, Integer.class).toString());
+			}
+			json_node.put("layer", nodeLayer);
+
+			// define node name for edges
+			if (nodeLayer.equals("")) 
+				continue;
+
+			nodeLayerNames.put(node, node_label + "_" + nodeLayer);
 			
 			// Node coordinates
+			json_node.put("position_x", "0");
 			Double node_x = view.getVisualProperty(BasicVisualLexicon.NODE_X_LOCATION);
-			System.out.println("position_y: " + node_x);
+			// System.out.println("position_y: " + node_x);
+			json_node.put("position_y", node_x.toString());
 			Double node_y = view.getVisualProperty(BasicVisualLexicon.NODE_Y_LOCATION);
-			System.out.println("position_z: " + node_y);
+			// System.out.println("position_z: " + node_y);
+			json_node.put("position_z", node_y.toString());
 			
 			// Node size
+			// TODO: figure out how to transform node size into scale, divide by default node size?
+			double scale = 1.0;
 			if (lockedNodeSize) {
 				Double node_size = view.getVisualProperty(BasicVisualLexicon.NODE_SIZE);
 				// Double default_node_size = BasicVisualLexicon.NODE_SIZE.getDefault();
 				Double default_node_size = netStyle.getDefaultValue(BasicVisualLexicon.NODE_SIZE);
-				System.out.println("scale_x: " + node_size/default_node_size);
+				// System.out.println("scale: " + node_size/default_node_size);
+				scale = node_size/default_node_size;
 			} else {
 				Double node_height = view.getVisualProperty(BasicVisualLexicon.NODE_HEIGHT);
 				Double default_node_height = netStyle.getDefaultValue(BasicVisualLexicon.NODE_HEIGHT);
 				Double node_width = view.getVisualProperty(BasicVisualLexicon.NODE_WIDTH);
 				Double default_node_width = netStyle.getDefaultValue(BasicVisualLexicon.NODE_WIDTH);
-				System.out.println("scale_x: " + (node_height/default_node_height + node_width/default_node_width)/2);
+				// System.out.println("scale: " + (node_height/default_node_height + node_width/default_node_width)/2);
+				scale = (node_height/default_node_height + node_width/default_node_width)/2.0;
 			}
+			// json_node.put("scale", new Double(scale).toString());
+			json_node.put("scale", "1");
 			
 			// Node color
 			Paint node_color = view.getVisualProperty(BasicVisualLexicon.NODE_FILL_COLOR);
-			System.out.println("color: " + BasicVisualLexicon.NODE_FILL_COLOR.toSerializableString(node_color));
 			// String hex = "#"+Integer.toHexString(Color.decode(node_color.toString()).getRGB()).substring(2);
+			System.out.println("color: " + BasicVisualLexicon.NODE_FILL_COLOR.toSerializableString(node_color));
+			json_node.put("color", BasicVisualLexicon.NODE_FILL_COLOR.toSerializableString(node_color));
 
-			System.out.println("url: ");
-			System.out.println("descr: ");
+			// System.out.println("url: ");
+			json_node.put("url", "");
+
+			// System.out.println("descr: ");
+			json_node.put("descr", "");
 			
-			// for (VisualProperty<?> vp : visualProperties) {
-			//	Object value = view.getVisualProperty(vp);
-			//	if (value == null)
-			//		continue;
-			//	// System.out.println(vp.getDisplayName() + ": " + vp.getDefault() + ", " + value);
-			//	final String key = getGraphicsKey(vp);
-			//	if (key != null && key.length() > 0) {
-			//		System.out.println(key + "=" + quote(value.toString()));
-			//	}
-			//}
+			// finally add the complete node object 
+			json_nodes.add(json_node);
 		}
+		// add all nodes to the json object
+		jsonNet.put("nodes", json_nodes);
+
 		// go over all edges and save info
+		JSONArray json_edges = new JSONArray();
+		Map<String, String> json_edge = null;
 		for (CyEdge edge : network.getEdgeList()) {
 			if (netView == null || !network.containsEdge(edge)) 
 				continue;
 
-			// System.out.println("name: " + encode(getRowFromNetOrRoot(network, edge, null).get(CyNetwork.NAME, String.class)));
+			// init the edge object map
+			json_edge = new LinkedHashMap<String, String>();
+
 			// Edge source and target
 			CyNode source = edge.getSource();
-			System.out.println("src: " + nodeNames.get(source));
 			CyNode target = edge.getTarget();
-			System.out.println("trg: " + nodeNames.get(target));
+			if (!nodeLayerNames.containsKey(source) || !nodeLayerNames.containsKey(target))
+				continue;
+			
+			// System.out.println("src: " + nodeLayerNames.get(source));
+			json_edge.put("src", nodeLayerNames.get(source));
+			// System.out.println("trg: " + nodeLayerNames.get(target));
+			json_edge.put("trg", nodeLayerNames.get(target));
 
 			// Edge color and width
 			View<CyEdge> view = netView.getEdgeView(edge);
-			// TODO: figure out ow to change edge width into an opacity value
+			// TODO: figure out how to change edge width into an opacity value (between 0 and 1)
 			Double edge_width = view.getVisualProperty(BasicVisualLexicon.EDGE_WIDTH);
 			Double default_edge_width = netStyle.getDefaultValue(BasicVisualLexicon.EDGE_WIDTH);
 			// System.out.println("opacity=" + edge_width/default_edge_width);
-			System.out.println("width: " + edge_width);
+			// System.out.println("width: " + edge_width);
+			// json_edge.put("opacity", new Double(edge_width).toString());
+			json_edge.put("opacity", "1");
+			
 			Paint edge_color = view.getVisualProperty(BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT);
-			System.out.println("color: " + BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT.toSerializableString(edge_color));
+			//System.out.println("color: " + BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT.toSerializableString(edge_color));
+			json_edge.put("color", BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT.toSerializableString(edge_color));
+			
 			String interaction = encode(getRowFromNetOrRoot(network, edge, null).get(CyEdge.INTERACTION, String.class));
-			System.out.println("channel: " + interaction);
+			// System.out.println("channel: " + interaction);
+			json_edge.put("channel", interaction);
+			
+			// finally add the complete edge object 
+			json_edges.add(json_edge);
+		}
+		// add all edges to the json object
+		jsonNet.put("edges", json_edges);
+		
+		// Get the results
+		JSONObject results;
+		try {
+			// results = HttpUtils.postJSON(getExampleJsonNetwork(), reg);
+			results = HttpUtils.postJSON(jsonNet, reg);
+		} catch (ConnectionException e) {
+			e.printStackTrace();
+			monitor.showMessage(Level.ERROR, "Network error: " + e.getMessage());
+			return;
 		}
 		
-//		JSONResult res = () -> {
-//			String result = "{";
-//			if (enrichmentTable != null)
-//				result += "\"EnrichmentTable\": "+enrichmentTable.getSUID();
-//			if (ppiSummary != null) {
-//				result = addResult(result, ModelUtils.NET_PPI_ENRICHMENT);
-//			}
-//			result += "}";
+		if (results != null && results.containsKey("url")) {
+			String returnURL = (String) results.get("url");
+			System.out.println("Succesfully sent network to Arena3dWeb: " + returnURL);
+			monitor.showMessage(Level.INFO, "Succesfully sent network to Arena3dWeb: " + returnURL);
+			if (Desktop.isDesktopSupported()) {
+				Desktop desktop = Desktop.getDesktop();
+				try {
+					desktop.browse(new URI(returnURL));
+				} catch (IOException | URISyntaxException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			} else {
+				Runtime runtime = Runtime.getRuntime();
+				try {
+					runtime.exec("xdg-open " + returnURL);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
 
+		}		
 	}
 
 	private String quote(final String str) {
@@ -254,6 +342,152 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		return s;
 	}
 
+	
+	private JSONObject setupJsonNetwork() {
+		Map<String, String> json_scene = new LinkedHashMap<String, String>();
+		json_scene.put("position_x", "0");
+		json_scene.put("position_y", "0");
+		json_scene.put("scale", "0.6561");
+		json_scene.put("color", "#FFFFFF");
+		json_scene.put("rotation_x", "0.261799387799149");
+		json_scene.put("rotation_y", "0.261799387799149");
+		json_scene.put("rotation_z", "0.0872664625997165");
+		
+		JSONObject jsonObjectNetwork = new JSONObject();
+		jsonObjectNetwork.put("scene", json_scene);
+		jsonObjectNetwork.put("universal_label_color", "#000000");
+		jsonObjectNetwork.put("direction", new Boolean(false));
+		// System.out.println(jsonObjectNetwork);		
+		return jsonObjectNetwork;
+	}
+	
+	private void addLayersToJsonNetwork(JSONObject jsonObjectNetwork, Set<String> layers) {
+		JSONArray json_layers = new JSONArray();
+		Map<String, String> json_layer = null;
+		int x = -480;
+		for (String layer : layers) {
+			if (layer.equals("")) 
+				continue;
+			json_layer = new LinkedHashMap<String, String>();
+			json_layer.put("name", layer);
+			json_layer.put("position_x", new Integer(x).toString());
+			json_layer.put("position_y", "0");
+			json_layer.put("position_z", "0");
+			json_layer.put("last_layer_scale", "1");
+			json_layer.put("rotation_x", "0");
+			json_layer.put("rotation_y", "0");
+			json_layer.put("rotation_z", "0");
+			json_layer.put("floor_current_color", "");
+			json_layer.put("geometry_parameters_width", "");
+			json_layers.add(json_layer);
+			x += 480;
+		}
+		jsonObjectNetwork.put("layers", json_layers);
+	}
+	
+	
+	private JSONObject getExampleJsonNetwork() {
+		Map<String, String> json_scene = new LinkedHashMap<String, String>();
+		json_scene.put("position_x", "0");
+		json_scene.put("position_y", "0");
+		json_scene.put("scale", "0.6561");
+		json_scene.put("color", "#000000");
+		json_scene.put("rotation_x", "0.261799387799149");
+		json_scene.put("rotation_y", "0.261799387799149");
+		json_scene.put("rotation_z", "0.0872664625997165");
+		
+		Map<String, String> json_layers_1 = new LinkedHashMap<String, String>();
+		json_layers_1.put("name", "1");
+		json_layers_1.put("position_x", "-480");
+		json_layers_1.put("position_y", "0");
+		json_layers_1.put("position_z", "0");
+		json_layers_1.put("last_layer_scale", "1");
+		json_layers_1.put("rotation_x", "0");
+		json_layers_1.put("rotation_y", "0");
+		json_layers_1.put("rotation_z", "0");
+		json_layers_1.put("floor_current_color", "#777777");
+		json_layers_1.put("geometry_parameters_width", "947");
+		Map<String, String> json_layers_2 = new LinkedHashMap<String, String>();
+		json_layers_2.put("name", "2");
+		json_layers_2.put("position_x", "480");
+		json_layers_2.put("position_y", "0");
+		json_layers_2.put("position_z", "0");
+		json_layers_2.put("last_layer_scale", "1");
+		json_layers_2.put("rotation_x", "0");
+		json_layers_2.put("rotation_y", "0");
+		json_layers_2.put("rotation_z", "0");
+		json_layers_2.put("floor_current_color", "#777777");
+		json_layers_2.put("geometry_parameters_width", "947");
+	    
+		JSONArray json_layers = new JSONArray();
+		json_layers.add(json_layers_1);
+	    json_layers.add(json_layers_2);
+	    
+		Map<String, String> json_nodes_1 = new LinkedHashMap<String, String>();
+		json_nodes_1.put("name", "A");
+		json_nodes_1.put("layer", "1");
+		json_nodes_1.put("position_x", "0");
+		json_nodes_1.put("position_y", "-410.179206860405");
+		json_nodes_1.put("position_z", "87.2109740224067");
+		json_nodes_1.put("scale", "1");
+		json_nodes_1.put("color", "#e41a1c");
+		json_nodes_1.put("url", "");
+		json_nodes_1.put("descr", "");
+		Map<String, String> json_nodes_2 = new LinkedHashMap<String, String>();
+		json_nodes_2.put("name", "B");
+		json_nodes_2.put("layer", "1");
+		json_nodes_2.put("position_x", "0");
+		json_nodes_2.put("position_y", "244.693623604753");
+		json_nodes_2.put("position_z", "-203.550830988035");
+		json_nodes_2.put("scale", "1");
+		json_nodes_2.put("color", "#e41a1c");
+		json_nodes_2.put("url", "");
+		json_nodes_2.put("descr", "");
+		Map<String, String> json_nodes_3 = new LinkedHashMap<String, String>();
+		json_nodes_3.put("name", "C");
+		json_nodes_3.put("layer", "2");
+		json_nodes_3.put("position_x", "0");
+		json_nodes_3.put("position_y", "-10.2895227857923");
+		json_nodes_3.put("position_z", "361.274295019168");
+		json_nodes_3.put("scale", "1");
+		json_nodes_3.put("color", "#377eb8");
+		json_nodes_3.put("url", "");
+		json_nodes_3.put("descr", "");
+
+		JSONArray json_nodes = new JSONArray();
+		json_nodes.add(json_nodes_1);
+		json_nodes.add(json_nodes_2);
+		json_nodes.add(json_nodes_3);
+	    
+		Map<String, String> json_edges_1 = new LinkedHashMap<String, String>();
+		json_edges_1.put("src", "A_1");
+		json_edges_1.put("trg", "B_1");
+		json_edges_1.put("opacity", "1");
+		json_edges_1.put("color", "#CFCFCF");
+		json_edges_1.put("channel", "");
+		Map<String, String> json_edges_2 = new LinkedHashMap<String, String>();
+		json_edges_2.put("src", "A_1");
+		json_edges_2.put("trg", "C_2");
+		json_edges_2.put("opacity", "1");
+		json_edges_2.put("color", "#CFCFCF");
+		json_edges_2.put("channel", "");
+
+		JSONArray json_edges = new JSONArray();
+		json_edges.add(json_edges_1);
+		json_edges.add(json_edges_2);
+		
+		JSONObject jsonObjectNetwork = new JSONObject();
+		jsonObjectNetwork.put("scene", json_scene);
+		jsonObjectNetwork.put("layers", json_layers);
+		jsonObjectNetwork.put("nodes", json_nodes);
+		jsonObjectNetwork.put("edges", json_edges);
+		jsonObjectNetwork.put("universal_label_color", "#FFFFFF");
+		jsonObjectNetwork.put("direction", new Boolean(false));
+		// System.out.println(jsonObjectNetwork);
+		
+		return jsonObjectNetwork;
+	}
+	
 	private String getGraphicsKey(VisualProperty<?> vp) {
 		// Nodes
 		if (vp.equals(BasicVisualLexicon.NODE_LABEL))
