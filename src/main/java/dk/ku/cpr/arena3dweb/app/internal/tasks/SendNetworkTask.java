@@ -585,7 +585,6 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		for (CyColumn col : colList) {
 			if (col.getType().equals(String.class)) {
 				showList.add(col);
-				System.out.println(col.getName());
 			}
 		}
 		Collections.sort(showList, new LexicographicComparator());
