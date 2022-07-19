@@ -7,6 +7,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -36,6 +38,7 @@ import org.cytoscape.view.vizmap.VisualPropertyDependency;
 import org.cytoscape.view.vizmap.VisualStyle;
 import org.cytoscape.work.AbstractTask;
 import org.cytoscape.work.ObservableTask;
+import org.cytoscape.work.ProvidesTitle;
 import org.cytoscape.work.TaskMonitor;
 import org.cytoscape.work.Tunable;
 import org.cytoscape.work.TaskMonitor.Level;
@@ -64,8 +67,25 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 	         longDescription="Select the column to use as layers in Arena3D.",
 	         exampleStringValue="name",
 	         required=true)
-	public ListSingleSelection<CyColumn> tableColumn = null;
+	public ListSingleSelection<CyColumn> layerColumn = null;
 
+	// @Tunable(description="Column to use for node labels",
+	// longDescription="Select the column to use for node labels in Arena3D.",
+	// exampleStringValue="name",
+	// required=true)
+	// public ListSingleSelection<CyColumn> labelColumn = null;
+	
+	@Tunable(description="Column to use for node description", 
+	         longDescription="Select the column to use for node description in Arena3D.",
+	         exampleStringValue="name",
+	         required=true)
+	public ListSingleSelection<CyColumn> descrColumn = null;
+
+	@Tunable(description="Column to use for node link", 
+	         longDescription="Select the column to use for node link in Arena3D.",
+	         exampleStringValue="name",
+	         required=true)
+	public ListSingleSelection<CyColumn> urlColumn = null;
 	
 	public SendNetworkTask(CyServiceRegistrar reg, CyNetwork net, CyNetworkView netView) {
 		this.reg = reg;
@@ -79,6 +99,9 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		
 		if (network != null) {
 			initLayerColumn();
+			// initLabelColumn();
+			initDescrColumn();
+			initURLColumn();
 		}
 	}
 	
@@ -106,7 +129,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		JSONObject jsonNet = setupJsonNetwork();
 		
 		// get the layers 
-		CyColumn colLayers = tableColumn.getSelectedValue();
+		CyColumn colLayers = layerColumn.getSelectedValue();
 		String colLayerName = colLayers.getName();
 		Class<?> colLayerClass = colLayers.getType();
 		Set<String> layers = new HashSet<String>(); 
@@ -148,17 +171,14 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			// System.out.println("id=" + node.getSUID());
 			// System.out.println("name=" + encode(getRowFromNetOrRoot(network, node, null).get(CyNetwork.NAME, String.class)));
 			String node_label = view.getVisualProperty(BasicVisualLexicon.NODE_LABEL);
-			// System.out.println("name: " + node_label);
 			json_node.put("name", node_label);
 			
 			// Node layer
 			// TODO: how to handle empty layers? currently, ignore them (influences layers, nodes and edges)
 			String nodeLayer = "1";
 			if (colLayerClass.equals(String.class)) {
-				// System.out.println("layer: " + encode(getRowFromNetOrRoot(network, node, null).get(colLayerName, String.class)));
 				nodeLayer = encode(getRowFromNetOrRoot(network, node, null).get(colLayerName, String.class));
 			} else if (colLayerClass.equals(Integer.class)) {
-				// System.out.println("layer: " + encode(getRowFromNetOrRoot(network, node, null).get(colLayerName, Integer.class).toString()));
 				nodeLayer = encode(getRowFromNetOrRoot(network, node, null).get(colLayerName, Integer.class).toString());
 			}
 			json_node.put("layer", nodeLayer);
@@ -167,15 +187,14 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			if (nodeLayer.equals("")) 
 				continue;
 
+			// add a cy node to arena3d node id mapping  
 			nodeLayerNames.put(node, node_label + "_" + nodeLayer);
 			
 			// Node coordinates
-			json_node.put("position_x", "0");
+			// json_node.put("position_x", "0");
 			Double node_x = view.getVisualProperty(BasicVisualLexicon.NODE_X_LOCATION);
-			// System.out.println("position_y: " + node_x);
 			json_node.put("position_y", node_x.toString());
 			Double node_y = view.getVisualProperty(BasicVisualLexicon.NODE_Y_LOCATION);
-			// System.out.println("position_z: " + node_y);
 			json_node.put("position_z", node_y.toString());
 			
 			// Node size
@@ -183,16 +202,13 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			double scale = 1.0;
 			if (lockedNodeSize) {
 				Double node_size = view.getVisualProperty(BasicVisualLexicon.NODE_SIZE);
-				// Double default_node_size = BasicVisualLexicon.NODE_SIZE.getDefault();
 				Double default_node_size = netStyle.getDefaultValue(BasicVisualLexicon.NODE_SIZE);
-				// System.out.println("scale: " + node_size/default_node_size);
 				scale = node_size/default_node_size;
 			} else {
 				Double node_height = view.getVisualProperty(BasicVisualLexicon.NODE_HEIGHT);
 				Double default_node_height = netStyle.getDefaultValue(BasicVisualLexicon.NODE_HEIGHT);
 				Double node_width = view.getVisualProperty(BasicVisualLexicon.NODE_WIDTH);
 				Double default_node_width = netStyle.getDefaultValue(BasicVisualLexicon.NODE_WIDTH);
-				// System.out.println("scale: " + (node_height/default_node_height + node_width/default_node_width)/2);
 				scale = (node_height/default_node_height + node_width/default_node_width)/2.0;
 			}
 			// json_node.put("scale", new Double(scale).toString());
@@ -200,16 +216,14 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			
 			// Node color
 			Paint node_color = view.getVisualProperty(BasicVisualLexicon.NODE_FILL_COLOR);
-			// String hex = "#"+Integer.toHexString(Color.decode(node_color.toString()).getRGB()).substring(2);
-			// System.out.println("color: " + BasicVisualLexicon.NODE_FILL_COLOR.toSerializableString(node_color));
 			json_node.put("color", BasicVisualLexicon.NODE_FILL_COLOR.toSerializableString(node_color));
 
-			// TODO: decide what to put as URL
-			// System.out.println("url: ");
+			// TODO: let the user choose which column to use for URL
+			// TODO: add a URL column to stringApp
 			json_node.put("url", "");
 
-			// TODO: decide what to put as description
-			// System.out.println("descr: ");
+			// TODO: let the user choose which column to use for description
+			// TODO: if string network, pre-set this tunable to stringdb::description
 			json_node.put("descr", "");
 			
 			// finally add the complete node object 
@@ -234,27 +248,21 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			if (!nodeLayerNames.containsKey(source) || !nodeLayerNames.containsKey(target))
 				continue;
 			
-			// System.out.println("src: " + nodeLayerNames.get(source));
 			json_edge.put("src", nodeLayerNames.get(source));
-			// System.out.println("trg: " + nodeLayerNames.get(target));
 			json_edge.put("trg", nodeLayerNames.get(target));
 
 			// Edge color and width
 			View<CyEdge> view = netView.getEdgeView(edge);
 			// TODO: figure out how to change edge width into an opacity value (between 0 and 1)
+			// TODO: take both opacity and edge tickness and combined them to one value
 			Double edge_width = view.getVisualProperty(BasicVisualLexicon.EDGE_WIDTH);
 			Double default_edge_width = netStyle.getDefaultValue(BasicVisualLexicon.EDGE_WIDTH);
-			// System.out.println("opacity=" + edge_width/default_edge_width);
-			// System.out.println("width: " + edge_width);
-			// json_edge.put("opacity", new Double(edge_width).toString());
 			json_edge.put("opacity", "1");
 			
 			Paint edge_color = view.getVisualProperty(BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT);
-			//System.out.println("color: " + BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT.toSerializableString(edge_color));
 			json_edge.put("color", BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT.toSerializableString(edge_color));
 			
 			String interaction = encode(getRowFromNetOrRoot(network, edge, null).get(CyEdge.INTERACTION, String.class));
-			// System.out.println("channel: " + interaction);
 			json_edge.put("channel", interaction);
 			
 			// finally add the complete edge object 
@@ -262,6 +270,9 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		}
 		// add all edges to the json object
 		jsonNet.put("edges", json_edges);
+		
+		// output the json we are sending
+		System.out.println(jsonNet);
 		
 		// Get the results
 		JSONObject results;
@@ -297,6 +308,11 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			}
 
 		}		
+	}
+
+	@ProvidesTitle
+	public String getTitle() {
+		return "Send current network to Arena3Dweb";
 	}
 
 	private String quote(final String str) {
@@ -347,19 +363,23 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 	// TODO: do we keep these as defaults?
 	private JSONObject setupJsonNetwork() {
 		Map<String, String> json_scene = new LinkedHashMap<String, String>();
-		json_scene.put("position_x", "0");
-		json_scene.put("position_y", "0");
-		json_scene.put("scale", "0.6561");
+		// TODO: get color from default network background color
 		json_scene.put("color", "#FFFFFF");
-		json_scene.put("rotation_x", "0.261799387799149");
-		json_scene.put("rotation_y", "0.261799387799149");
-		json_scene.put("rotation_z", "0.0872664625997165");
+
+		// Other optional parameters to use: 
+		//json_scene.put("position_x", "0");
+		//json_scene.put("position_y", "0");
+		//json_scene.put("scale", "0.6561");
+		//json_scene.put("rotation_x", "0.261799387799149");
+		//json_scene.put("rotation_y", "0.261799387799149");
+		//json_scene.put("rotation_z", "0.0872664625997165");
 		
 		JSONObject jsonObjectNetwork = new JSONObject();
 		jsonObjectNetwork.put("scene", json_scene);
+		// TODO: get color from default node label color
 		jsonObjectNetwork.put("universal_label_color", "#000000");
-		jsonObjectNetwork.put("direction", new Boolean(false));
-		// System.out.println(jsonObjectNetwork);		
+		// Optional parameter to use
+		// jsonObjectNetwork.put("direction", new Boolean(false));
 		return jsonObjectNetwork;
 	}
 	
@@ -367,23 +387,23 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 	private void addLayersToJsonNetwork(JSONObject jsonObjectNetwork, Set<String> layers) {
 		JSONArray json_layers = new JSONArray();
 		Map<String, String> json_layer = null;
-		int x = -480;
+		// int x = -480;
 		for (String layer : layers) {
 			if (layer.equals("")) 
 				continue;
 			json_layer = new LinkedHashMap<String, String>();
 			json_layer.put("name", layer);
-			json_layer.put("position_x", new Integer(x).toString());
-			json_layer.put("position_y", "0");
-			json_layer.put("position_z", "0");
-			json_layer.put("last_layer_scale", "1");
-			json_layer.put("rotation_x", "0");
-			json_layer.put("rotation_y", "0");
-			json_layer.put("rotation_z", "0");
-			json_layer.put("floor_current_color", "");
-			json_layer.put("geometry_parameters_width", "");
+			//json_layer.put("position_x", new Integer(x).toString());
+			//json_layer.put("position_y", "0");
+			//json_layer.put("position_z", "0");
+			//json_layer.put("last_layer_scale", "1");
+			//json_layer.put("rotation_x", "0");
+			//json_layer.put("rotation_y", "0");
+			//json_layer.put("rotation_z", "0");
+			//json_layer.put("floor_current_color", "");
+			//json_layer.put("geometry_parameters_width", "");
 			json_layers.add(json_layer);
-			x += 480;
+			// x += 480;
 		}
 		jsonObjectNetwork.put("layers", json_layers);
 	}
@@ -545,26 +565,90 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		return null;
 	}
 
+    
+	// private void initLabelColumn() {
+	// Collection<CyColumn> colList = network.getDefaultNodeTable().getColumns();
+	// List<CyColumn> showList = new ArrayList<CyColumn>();
+	// for (CyColumn col : colList) {
+	// if (col.getType().equals(String.class)) {
+	// showList.add(col);
+	// }
+	// }
+	// labelColumn = new ListSingleSelection<CyColumn>(showList);
+	// if (showList.size() > 0)
+	// labelColumn.setSelectedValue(showList.get(0));
+	// }
+    
+    private void initDescrColumn() {
+		Collection<CyColumn> colList = network.getDefaultNodeTable().getColumns();
+		List<CyColumn> showList = new ArrayList<CyColumn>();
+		for (CyColumn col : colList) {
+			if (col.getType().equals(String.class)) {
+				showList.add(col);
+				System.out.println(col.getName());
+			}
+		}
+		Collections.sort(showList, new LexicographicComparator());
+		descrColumn = new ListSingleSelection<CyColumn>(showList);
+		if (network.getDefaultNodeTable().getColumn("stringdb::description") != null) {
+			descrColumn.setSelectedValue(network.getDefaultNodeTable().getColumn("stringdb::description"));
+		} else if (network.getDefaultNodeTable().getColumn("description") != null) {
+			descrColumn.setSelectedValue(network.getDefaultNodeTable().getColumn("description"));
+		} else if (showList.size() > 0)
+			descrColumn.setSelectedValue(showList.get(0));
+    }
+
+    private void initURLColumn() {
+		Collection<CyColumn> colList = network.getDefaultNodeTable().getColumns();
+		List<CyColumn> showList = new ArrayList<CyColumn>();
+		for (CyColumn col : colList) {
+			if (col.getType().equals(String.class)) {
+				showList.add(col);
+			}
+		}
+		Collections.sort(showList, new LexicographicComparator());
+		urlColumn = new ListSingleSelection<CyColumn>(showList);
+		if (network.getDefaultNodeTable().getColumn("stringdb::url") != null) {
+			urlColumn.setSelectedValue(network.getDefaultNodeTable().getColumn("stringdb::url"));
+		} else if (network.getDefaultNodeTable().getColumn("url") != null) {
+			urlColumn.setSelectedValue(network.getDefaultNodeTable().getColumn("url"));
+		} else if (network.getDefaultNodeTable().getColumn("name") != null) {
+			urlColumn.setSelectedValue(network.getDefaultNodeTable().getColumn("name"));
+		} else if (showList.size() > 0) {
+			urlColumn.setSelectedValue(showList.get(0));
+		}
+    }
+
     private void initLayerColumn() {
 		Collection<CyColumn> colList = network.getDefaultNodeTable().getColumns();
 		List<CyColumn> showList = new ArrayList<CyColumn>();
 		for (CyColumn col : colList) {
 			// System.out.println(col.getName());
 			Set<?> colValues = new HashSet();
+			int numValues = 0;
 			if (col.getType().equals(String.class)) {
 				colValues = new HashSet<String>(col.getValues(String.class));
+				numValues = col.getValues(String.class).size();
 			} else if (col.getType().equals(Integer.class)) {
 				colValues = new HashSet<Integer>(col.getValues(Integer.class));
+				numValues = col.getValues(Integer.class).size();
 			}
 			// TODO: filter for empty strings
-			// System.out.println(colValues.size());
-			if (colValues.size() > 1 && colValues.size() <= limitUniqueAttributes) {
-					showList.add(col);
+			if (colValues.size() != numValues && colValues.size() > 1
+					&& colValues.size() <= limitUniqueAttributes) {
+				showList.add(col);
 			}
 		}
-		tableColumn = new ListSingleSelection<CyColumn>(showList);
-		tableColumn.setSelectedValue(showList.get(0));
+		Collections.sort(showList, new LexicographicComparator());
+		layerColumn = new ListSingleSelection<CyColumn>(showList);
+		layerColumn.setSelectedValue(showList.get(0));
 		// tableColumn.setSelectedValue(network.getDefaultNodeTable().getColumn("layer"));
     }
     
+	class LexicographicComparator implements Comparator<CyColumn> {
+	    public int compare(CyColumn a, CyColumn b) {
+	        return a.getName().compareToIgnoreCase(b.getName());
+	    }
+	}
+
 }
