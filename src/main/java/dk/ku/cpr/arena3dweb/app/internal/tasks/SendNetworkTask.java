@@ -79,13 +79,13 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 	         longDescription="Select the column to use for node description in Arena3D.",
 	         exampleStringValue="name",
 	         required=true)
-	public ListSingleSelection<CyColumn> descrColumn = null;
+	public ListSingleSelection<String> descrColumn = null;
 
-	@Tunable(description="Column to use for node link", 
-	         longDescription="Select the column to use for node link in Arena3D.",
+	@Tunable(description="Column to use for node URL", 
+	         longDescription="Select the column to use for node URL in Arena3D.",
 	         exampleStringValue="name",
 	         required=true)
-	public ListSingleSelection<CyColumn> urlColumn = null;
+	public ListSingleSelection<String> urlColumn = null;
 	
 	public SendNetworkTask(CyServiceRegistrar reg, CyNetwork net, CyNetworkView netView) {
 		this.reg = reg;
@@ -125,26 +125,6 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			}
 		}
 
-		// setup json object with basics
-		JSONObject jsonNet = setupJsonNetwork();
-		
-		// get the layers 
-		CyColumn colLayers = layerColumn.getSelectedValue();
-		String colLayerName = colLayers.getName();
-		Class<?> colLayerClass = colLayers.getType();
-		Set<String> layers = new HashSet<String>(); 
-		if (colLayerClass.equals(String.class)) {
-			layers.addAll(colLayers.getValues(String.class));
-		} else if (colLayerClass.equals(Integer.class)) {
-			Set<Integer> colValuesInt = new HashSet<Integer>(colLayers.getValues(Integer.class));
-			for (Integer colValue : colValuesInt) {
-				layers.add(colValue.toString());
-			}
-		}
-		monitor.setStatusMessage("Network will contain " + layers.size() + " layers.");
-		// add layers to json object
-		addLayersToJsonNetwork(jsonNet, layers);
-		
 		// get the visual style and locked node size property
 		boolean lockedNodeSize = false;
 		VisualMappingManager vmm = reg.getService(VisualMappingManager.class);
@@ -155,6 +135,33 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 				lockedNodeSize = vpd.isDependencyEnabled();
 		}
 
+		// setup json object with basics
+		JSONObject jsonNet = setupJsonNetwork(netStyle);
+		
+		// get the layers 
+		CyColumn colLayers = layerColumn.getSelectedValue();
+		String colLayerName = colLayers.getName();
+		Class<?> colLayerClass = colLayers.getType();
+		Set<String> layers = new HashSet<String>(); 
+		if (colLayerClass.equals(String.class)) {
+			Set<String> colValues = new HashSet<String>(colLayers.getValues(String.class));
+			for (String colValue : colValues) {
+				if (colValue != null && !colValue.equals(""))
+					layers.add(colValue);
+			}
+			// layers.addAll(colLayers.getValues(String.class));
+		} else if (colLayerClass.equals(Integer.class)) {
+			Set<Integer> colValuesInt = new HashSet<Integer>(colLayers.getValues(Integer.class));
+			for (Integer colValue : colValuesInt) {
+				if (colValue != null)
+					layers.add(colValue.toString());
+			}
+		}
+		monitor.setStatusMessage("Network will contain " + layers.size() + " layers.");
+		System.out.println("Network will contain " + layers.size() + " layers.");
+		// add layers to json object
+		addLayersToJsonNetwork(jsonNet, layers);
+		
 		// go over all nodes and save info
 		HashMap<CyNode, String> nodeLayerNames = new HashMap<CyNode, String>();
 		JSONArray json_nodes = new JSONArray();
@@ -175,18 +182,23 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			
 			// Node layer
 			// TODO: how to handle empty layers? currently, ignore them (influences layers, nodes and edges)
-			String nodeLayer = "1";
+			String nodeLayer = "layer1";
 			if (colLayerClass.equals(String.class)) {
 				nodeLayer = encode(getRowFromNetOrRoot(network, node, null).get(colLayerName, String.class));
+				if (nodeLayer == null || nodeLayer.equals("")) 
+					continue;
 			} else if (colLayerClass.equals(Integer.class)) {
-				nodeLayer = encode(getRowFromNetOrRoot(network, node, null).get(colLayerName, Integer.class).toString());
+				Integer nodeLayerInt = getRowFromNetOrRoot(network, node, null).get(colLayerName, Integer.class);
+				if (nodeLayerInt == null)
+					continue;
+				nodeLayer = encode(nodeLayerInt.toString());
+				if (nodeLayer.equals(""))
+					continue;
 			}
+
 			json_node.put("layer", nodeLayer);
 
 			// define node name for edges
-			if (nodeLayer.equals("")) 
-				continue;
-
 			// add a cy node to arena3d node id mapping  
 			nodeLayerNames.put(node, node_label + "_" + nodeLayer);
 			
@@ -198,7 +210,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			json_node.put("position_z", node_y.toString());
 			
 			// Node size
-			// TODO: figure out how to transform node size into scale, divide by default node size?
+			// transform node size into scale by dividing by default node size seems to work 
 			double scale = 1.0;
 			if (lockedNodeSize) {
 				Double node_size = view.getVisualProperty(BasicVisualLexicon.NODE_SIZE);
@@ -211,20 +223,21 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 				Double default_node_width = netStyle.getDefaultValue(BasicVisualLexicon.NODE_WIDTH);
 				scale = (node_height/default_node_height + node_width/default_node_width)/2.0;
 			}
-			// json_node.put("scale", new Double(scale).toString());
-			json_node.put("scale", "1");
+			json_node.put("scale", new Double(scale).toString());
+			// json_node.put("scale", "1");
 			
 			// Node color
 			Paint node_color = view.getVisualProperty(BasicVisualLexicon.NODE_FILL_COLOR);
 			json_node.put("color", BasicVisualLexicon.NODE_FILL_COLOR.toSerializableString(node_color));
 
-			// TODO: let the user choose which column to use for URL
 			// TODO: add a URL column to stringApp
-			json_node.put("url", "");
+			String url = encode(getRowFromNetOrRoot(network, node, null).get(urlColumn.getSelectedValue(), String.class));
+			if (url != null && !url.equals(""))
+				json_node.put("url", url);
 
-			// TODO: let the user choose which column to use for description
-			// TODO: if string network, pre-set this tunable to stringdb::description
-			json_node.put("descr", "");
+			String descr = encode(getRowFromNetOrRoot(network, node, null).get(descrColumn.getSelectedValue(), String.class));
+			if (descr != null && !descr.equals(""))
+				json_node.put("descr", descr);
 			
 			// finally add the complete node object 
 			json_nodes.add(json_node);
@@ -256,7 +269,9 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			// TODO: figure out how to change edge width into an opacity value (between 0 and 1)
 			// TODO: take both opacity and edge tickness and combined them to one value
 			Double edge_width = view.getVisualProperty(BasicVisualLexicon.EDGE_WIDTH);
-			Double default_edge_width = netStyle.getDefaultValue(BasicVisualLexicon.EDGE_WIDTH);
+			Integer edge_opacity = view.getVisualProperty(BasicVisualLexicon.EDGE_TRANSPARENCY);
+			// System.out.println(edge_width + " " + edge_opacity);
+			// Double default_edge_width = netStyle.getDefaultValue(BasicVisualLexicon.EDGE_WIDTH);
 			json_edge.put("opacity", "1");
 			
 			Paint edge_color = view.getVisualProperty(BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT);
@@ -360,11 +375,11 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		return s;
 	}
 
-	// TODO: do we keep these as defaults?
-	private JSONObject setupJsonNetwork() {
+	private JSONObject setupJsonNetwork(VisualStyle netStyle) {
 		Map<String, String> json_scene = new LinkedHashMap<String, String>();
-		// TODO: get color from default network background color
-		json_scene.put("color", "#FFFFFF");
+		// get color from default network background color
+		Paint default_net_bg_paint = netStyle.getDefaultValue(BasicVisualLexicon.NETWORK_BACKGROUND_PAINT);
+		json_scene.put("color", BasicVisualLexicon.NETWORK_BACKGROUND_PAINT.toSerializableString(default_net_bg_paint));
 
 		// Other optional parameters to use: 
 		//json_scene.put("position_x", "0");
@@ -376,21 +391,24 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		
 		JSONObject jsonObjectNetwork = new JSONObject();
 		jsonObjectNetwork.put("scene", json_scene);
-		// TODO: get color from default node label color
-		jsonObjectNetwork.put("universal_label_color", "#000000");
+		// get color from default node label color
+		Paint default_node_label_color = netStyle.getDefaultValue(BasicVisualLexicon.NODE_LABEL_COLOR);
+		jsonObjectNetwork.put("universal_label_color", BasicVisualLexicon.NODE_LABEL_COLOR.toSerializableString(default_node_label_color));
 		// Optional parameter to use
 		// jsonObjectNetwork.put("direction", new Boolean(false));
 		return jsonObjectNetwork;
 	}
 	
-	// TODO: how to separate layers from each other? on our side or not?
 	private void addLayersToJsonNetwork(JSONObject jsonObjectNetwork, Set<String> layers) {
 		JSONArray json_layers = new JSONArray();
 		Map<String, String> json_layer = null;
 		// int x = -480;
 		for (String layer : layers) {
-			if (layer.equals("")) 
+			if (layer == null || layer.equals("")) {
+				// System.out.println("ignore layer because it is null or empty");
+				// TODO: double check why this happens and needs to be checked for?
 				continue;
+			}
 			json_layer = new LinkedHashMap<String, String>();
 			json_layer.put("name", layer);
 			//json_layer.put("position_x", new Integer(x).toString());
@@ -581,58 +599,61 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
     
     private void initDescrColumn() {
 		Collection<CyColumn> colList = network.getDefaultNodeTable().getColumns();
-		List<CyColumn> showList = new ArrayList<CyColumn>();
+		List<String> showList = new ArrayList<String>();
 		for (CyColumn col : colList) {
 			if (col.getType().equals(String.class)) {
-				showList.add(col);
+				showList.add(col.getName());
 			}
 		}
-		Collections.sort(showList, new LexicographicComparator());
-		descrColumn = new ListSingleSelection<CyColumn>(showList);
+		Collections.sort(showList);
+		showList.add("");
+		descrColumn = new ListSingleSelection<String>(showList);
+		descrColumn.setSelectedValue("");
 		if (network.getDefaultNodeTable().getColumn("stringdb::description") != null) {
-			descrColumn.setSelectedValue(network.getDefaultNodeTable().getColumn("stringdb::description"));
+			descrColumn.setSelectedValue("stringdb::description");
 		} else if (network.getDefaultNodeTable().getColumn("description") != null) {
-			descrColumn.setSelectedValue(network.getDefaultNodeTable().getColumn("description"));
-		} else if (showList.size() > 0)
-			descrColumn.setSelectedValue(showList.get(0));
+			descrColumn.setSelectedValue("description");
+		}
     }
 
     private void initURLColumn() {
 		Collection<CyColumn> colList = network.getDefaultNodeTable().getColumns();
-		List<CyColumn> showList = new ArrayList<CyColumn>();
+		List<String> showList = new ArrayList<String>();
 		for (CyColumn col : colList) {
 			if (col.getType().equals(String.class)) {
-				showList.add(col);
+				showList.add(col.getName());
 			}
 		}
-		Collections.sort(showList, new LexicographicComparator());
-		urlColumn = new ListSingleSelection<CyColumn>(showList);
+		Collections.sort(showList);
+		showList.add("");
+		urlColumn = new ListSingleSelection<String>(showList);
+		urlColumn.setSelectedValue("");
 		if (network.getDefaultNodeTable().getColumn("stringdb::url") != null) {
-			urlColumn.setSelectedValue(network.getDefaultNodeTable().getColumn("stringdb::url"));
+			urlColumn.setSelectedValue("stringdb::url");
 		} else if (network.getDefaultNodeTable().getColumn("url") != null) {
-			urlColumn.setSelectedValue(network.getDefaultNodeTable().getColumn("url"));
-		} else if (network.getDefaultNodeTable().getColumn("name") != null) {
-			urlColumn.setSelectedValue(network.getDefaultNodeTable().getColumn("name"));
-		} else if (showList.size() > 0) {
-			urlColumn.setSelectedValue(showList.get(0));
-		}
+			urlColumn.setSelectedValue("url");
+		} 
+		// TODO: why would I put the name for URL?
+		//else if (network.getDefaultNodeTable().getColumn("name") != null) {
+		//	urlColumn.setSelectedValue("name");
+		// }
     }
 
     private void initLayerColumn() {
 		Collection<CyColumn> colList = network.getDefaultNodeTable().getColumns();
 		List<CyColumn> showList = new ArrayList<CyColumn>();
 		for (CyColumn col : colList) {
-			// System.out.println(col.getName());
 			Set<?> colValues = new HashSet();
-			int numValues = 0;
+			int numValues = network.getNodeCount();
 			if (col.getType().equals(String.class)) {
 				colValues = new HashSet<String>(col.getValues(String.class));
-				numValues = col.getValues(String.class).size();
+				if (colValues.contains("")) 
+					colValues.remove("");
 			} else if (col.getType().equals(Integer.class)) {
 				colValues = new HashSet<Integer>(col.getValues(Integer.class));
-				numValues = col.getValues(Integer.class).size();
+				if (colValues.contains(null))
+					colValues.remove(null);
 			}
-			// TODO: filter for empty strings
 			if (colValues.size() != numValues && colValues.size() > 1
 					&& colValues.size() <= limitUniqueAttributes) {
 				showList.add(col);
