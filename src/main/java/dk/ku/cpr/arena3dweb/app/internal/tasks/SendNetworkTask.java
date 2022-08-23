@@ -12,7 +12,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,6 +48,7 @@ import org.json.simple.JSONObject;
 import dk.ku.cpr.arena3dweb.app.internal.io.ConnectionException;
 import dk.ku.cpr.arena3dweb.app.internal.io.HttpUtils;
 
+// TODO: clean up 
 public class SendNetworkTask extends AbstractTask implements ObservableTask {
 
 	final private CyServiceRegistrar reg;
@@ -65,7 +65,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 
 	@Tunable(description="Column to use for layers", 
 	         longDescription="Select the column to use as layers in Arena3D.",
-	         exampleStringValue="name",
+	         exampleStringValue="layer",
 	         required=true)
 	public ListSingleSelection<CyColumn> layerColumn = null;
 
@@ -77,15 +77,30 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 	
 	@Tunable(description="Column to use for node description", 
 	         longDescription="Select the column to use for node description in Arena3D.",
-	         exampleStringValue="name",
-	         required=true)
+	         exampleStringValue="description",
+	         required=false)
 	public ListSingleSelection<String> descrColumn = null;
 
 	@Tunable(description="Column to use for node URL", 
 	         longDescription="Select the column to use for node URL in Arena3D.",
-	         exampleStringValue="name",
-	         required=true)
+	         exampleStringValue="url",
+	         required=false)
 	public ListSingleSelection<String> urlColumn = null;
+	
+	@Tunable(description="Keep unassigned nodes in a layer", 
+	         longDescription="Option to choose to keep nodes not assigned to a layer in an extra layer.",
+	         groups={"Advanced"}, params="displayState=collapsed",
+	         exampleStringValue="true",
+	         required=false)
+	public boolean keepUnassigned = true;
+
+	@Tunable(description="Layer name for unassigned nodes", 
+	         longDescription="This default name will be used for the layer that contains nodes without.",
+	         groups={"Advanced"}, params="displayState=collapsed",
+	         exampleStringValue="unassigned",
+	         required=false)
+	public String defaultLayerName = "unassigned";
+
 	
 	public SendNetworkTask(CyServiceRegistrar reg, CyNetwork net, CyNetworkView netView) {
 		this.reg = reg;
@@ -106,7 +121,9 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 	}
 	
 	@Override
+	@SuppressWarnings("unchecked")
 	public void run(TaskMonitor monitor) throws Exception {
+		// TODO: consider moving the jsonNet stuff into another class to be able to use it differently, e.g. for exporting into a file
 		monitor.setTitle("Send network to Arena3D");
 		// check if we have a network
 		if (network == null) {
@@ -146,14 +163,17 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		if (colLayerClass.equals(String.class)) {
 			Set<String> colValues = new HashSet<String>(colLayers.getValues(String.class));
 			for (String colValue : colValues) {
-				if (colValue != null && !colValue.equals(""))
+				if (colValue == null || colValue.equals(""))
+					layers.add(defaultLayerName);
+				else 
 					layers.add(colValue);
 			}
-			// layers.addAll(colLayers.getValues(String.class));
 		} else if (colLayerClass.equals(Integer.class)) {
 			Set<Integer> colValuesInt = new HashSet<Integer>(colLayers.getValues(Integer.class));
 			for (Integer colValue : colValuesInt) {
-				if (colValue != null)
+				if (colValue == null)
+					layers.add(defaultLayerName);
+				else
 					layers.add(colValue.toString());
 			}
 		}
@@ -181,19 +201,18 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			json_node.put("name", node_label);
 			
 			// Node layer
-			// TODO: how to handle empty layers? currently, ignore them (influences layers, nodes and edges)
 			String nodeLayer = "layer1";
 			if (colLayerClass.equals(String.class)) {
 				nodeLayer = encode(getRowFromNetOrRoot(network, node, null).get(colLayerName, String.class));
 				if (nodeLayer == null || nodeLayer.equals("")) 
-					continue;
+					nodeLayer = defaultLayerName;
 			} else if (colLayerClass.equals(Integer.class)) {
 				Integer nodeLayerInt = getRowFromNetOrRoot(network, node, null).get(colLayerName, Integer.class);
 				if (nodeLayerInt == null)
-					continue;
+					nodeLayer = defaultLayerName;
 				nodeLayer = encode(nodeLayerInt.toString());
 				if (nodeLayer.equals(""))
-					continue;
+					nodeLayer = defaultLayerName;
 			}
 
 			json_node.put("layer", nodeLayer);
@@ -215,6 +234,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			if (lockedNodeSize) {
 				Double node_size = view.getVisualProperty(BasicVisualLexicon.NODE_SIZE);
 				Double default_node_size = netStyle.getDefaultValue(BasicVisualLexicon.NODE_SIZE);
+				// System.out.println("node size: " + netStyle.getVisualMappingFunction(BasicVisualLexicon.NODE_SIZE).getVisualProperty().getRange().toString());
 				scale = node_size/default_node_size;
 			} else {
 				Double node_height = view.getVisualProperty(BasicVisualLexicon.NODE_HEIGHT);
@@ -224,7 +244,6 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 				scale = (node_height/default_node_height + node_width/default_node_width)/2.0;
 			}
 			json_node.put("scale", new Double(scale).toString());
-			// json_node.put("scale", "1");
 			
 			// Node color
 			Paint node_color = view.getVisualProperty(BasicVisualLexicon.NODE_FILL_COLOR);
@@ -248,6 +267,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		// go over all edges and save info
 		JSONArray json_edges = new JSONArray();
 		Map<String, String> json_edge = null;
+		HashMap<CyEdge, Double> edgeScaleMap = getEdgeScales();
 		for (CyEdge edge : network.getEdgeList()) {
 			if (netView == null || !network.containsEdge(edge)) 
 				continue;
@@ -265,15 +285,10 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			json_edge.put("trg", nodeLayerNames.get(target));
 
 			// Edge color and width
-			View<CyEdge> view = netView.getEdgeView(edge);
-			// TODO: figure out how to change edge width into an opacity value (between 0 and 1)
-			// TODO: take both opacity and edge tickness and combined them to one value
-			Double edge_width = view.getVisualProperty(BasicVisualLexicon.EDGE_WIDTH);
-			Integer edge_opacity = view.getVisualProperty(BasicVisualLexicon.EDGE_TRANSPARENCY);
-			// System.out.println(edge_width + " " + edge_opacity);
-			// Double default_edge_width = netStyle.getDefaultValue(BasicVisualLexicon.EDGE_WIDTH);
-			json_edge.put("opacity", "1");
+			if (edgeScaleMap.containsKey(edge))
+				json_edge.put("opacity", new Double(edgeScaleMap.get(edge)).toString());
 			
+			View<CyEdge> view = netView.getEdgeView(edge);
 			Paint edge_color = view.getVisualProperty(BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT);
 			json_edge.put("color", BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT.toSerializableString(edge_color));
 			
@@ -330,10 +345,6 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		return "Send current network to Arena3Dweb";
 	}
 
-	private String quote(final String str) {
-		return '"' + encode(str) + '"';
-	}
-
 	private String encode(String str) {
 		// Find and replace any "magic", control, non-printable etc. characters
 		// For maximum safety, everything other than printable ASCII (0x20 thru 0x7E) is converted
@@ -375,6 +386,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		return s;
 	}
 
+	@SuppressWarnings("unchecked")
 	private JSONObject setupJsonNetwork(VisualStyle netStyle) {
 		Map<String, String> json_scene = new LinkedHashMap<String, String>();
 		// get color from default network background color
@@ -393,12 +405,17 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		jsonObjectNetwork.put("scene", json_scene);
 		// get color from default node label color
 		Paint default_node_label_color = netStyle.getDefaultValue(BasicVisualLexicon.NODE_LABEL_COLOR);
-		jsonObjectNetwork.put("universal_label_color", BasicVisualLexicon.NODE_LABEL_COLOR.toSerializableString(default_node_label_color));
+		// TODO: test this once new version is released
+		jsonObjectNetwork.put("universalLabelColor", BasicVisualLexicon.NODE_LABEL_COLOR.toSerializableString(default_node_label_color));
+		// use edge weight to opacity mapping
+		// TODO: test this once new version is released
+		jsonObjectNetwork.put("edgeOpacityByWeight", new Boolean(true));
 		// Optional parameter to use
 		// jsonObjectNetwork.put("direction", new Boolean(false));
 		return jsonObjectNetwork;
 	}
 	
+	@SuppressWarnings("unchecked")
 	private void addLayersToJsonNetwork(JSONObject jsonObjectNetwork, Set<String> layers) {
 		JSONArray json_layers = new JSONArray();
 		Map<String, String> json_layer = null;
@@ -426,7 +443,38 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		jsonObjectNetwork.put("layers", json_layers);
 	}
 	
+	private HashMap<CyEdge, Double> getEdgeScales() {
+		HashMap<CyEdge, Double> edgeScales = new HashMap<CyEdge, Double>();
+		double maxWidth = 0.0;
+		int maxOpacity = 0;
+		for (CyEdge edge : network.getEdgeList()) {
+			if (netView == null || !network.containsEdge(edge)) 
+				continue;
+
+			// Edge width
+			View<CyEdge> view = netView.getEdgeView(edge);
+			// TODO: test this with a network with different edge weights
+			// take both opacity and edge tickness and combined them to one value
+			Double edge_width = view.getVisualProperty(BasicVisualLexicon.EDGE_WIDTH);
+			Integer edge_opacity = view.getVisualProperty(BasicVisualLexicon.EDGE_TRANSPARENCY);
+			// TODO: if needed, do gamma factor correction (put the scale to the power of gamma = 2 or something else)
+			double edge_scale = edge_width*edge_opacity;
+			// System.out.println(edge_width + " " + edge_opacity + " " + edge_scale) ;
+			edgeScales.put(edge, new Double(edge_scale));
+			if (edge_width.doubleValue() > maxWidth)
+				maxWidth = edge_width.doubleValue();
+			if (edge_opacity.intValue() > maxOpacity)
+				maxOpacity = edge_opacity.intValue(); 
+		}
+		for (CyEdge edge : edgeScales.keySet()) {
+			double newScale = edgeScales.get(edge)/(maxOpacity*maxWidth);
+			edgeScales.put(edge, new Double(newScale));
+		}
+		return edgeScales;
+	}
 	
+	
+	@SuppressWarnings("unchecked")
 	private JSONObject getExampleJsonNetwork() {
 		Map<String, String> json_scene = new LinkedHashMap<String, String>();
 		json_scene.put("position_x", "0");
@@ -582,20 +630,6 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
     public <R> R getResults(Class<? extends R> type) {
 		return null;
 	}
-
-    
-	// private void initLabelColumn() {
-	// Collection<CyColumn> colList = network.getDefaultNodeTable().getColumns();
-	// List<CyColumn> showList = new ArrayList<CyColumn>();
-	// for (CyColumn col : colList) {
-	// if (col.getType().equals(String.class)) {
-	// showList.add(col);
-	// }
-	// }
-	// labelColumn = new ListSingleSelection<CyColumn>(showList);
-	// if (showList.size() > 0)
-	// labelColumn.setSelectedValue(showList.get(0));
-	// }
     
     private void initDescrColumn() {
 		Collection<CyColumn> colList = network.getDefaultNodeTable().getColumns();
@@ -643,16 +677,12 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		Collection<CyColumn> colList = network.getDefaultNodeTable().getColumns();
 		List<CyColumn> showList = new ArrayList<CyColumn>();
 		for (CyColumn col : colList) {
-			Set<?> colValues = new HashSet();
+			Set<?> colValues = new HashSet<>();
 			int numValues = network.getNodeCount();
 			if (col.getType().equals(String.class)) {
 				colValues = new HashSet<String>(col.getValues(String.class));
-				if (colValues.contains("")) 
-					colValues.remove("");
 			} else if (col.getType().equals(Integer.class)) {
 				colValues = new HashSet<Integer>(col.getValues(Integer.class));
-				if (colValues.contains(null))
-					colValues.remove(null);
 			}
 			if (colValues.size() != numValues && colValues.size() > 1
 					&& colValues.size() <= limitUniqueAttributes) {
