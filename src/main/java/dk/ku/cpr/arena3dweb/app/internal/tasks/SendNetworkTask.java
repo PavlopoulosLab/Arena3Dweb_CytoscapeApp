@@ -125,7 +125,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 	@Override
 	@SuppressWarnings("unchecked")
 	public void run(TaskMonitor monitor) throws Exception {
-		// TODO: consider moving the jsonNet stuff into another class to be able to use it differently, e.g. for exporting into a file
+		// TODO: Move the jsonNet stuff into another class to be able to use it differently, e.g. for exporting into a file
 		monitor.setTitle("Send network to Arena3D");
 		// check if we have a network
 		if (network == null) {
@@ -308,6 +308,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		jsonNet.put("edges", json_edges);
 		
 		// output the json we are sending
+		// TODO: [Release] remove output 
 		System.out.println(jsonNet);
 		
 		// Get the results

@@ -41,6 +41,7 @@ public class CyActivator extends AbstractCyActivator {
 		final Logger logger = Logger.getLogger(CyUserLog.NAME);
 
 		// Get our version number
+		// TODO: [Release] Change version
 		Version v = bc.getBundle().getVersion();
 		String version = v.toString(); // The full version
 
@@ -64,6 +65,7 @@ public class CyActivator extends AbstractCyActivator {
 
 		
 		{
+			// TODO: add task to export network to Arena3D json format file
 			SendNetworkTaskFactory sendNetwork = new SendNetworkTaskFactory(registrar);
 			Properties props = new Properties();
 			// menu properties for a network without a view 
