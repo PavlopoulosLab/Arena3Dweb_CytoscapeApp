@@ -75,6 +75,8 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 	// required=true)
 	// public ListSingleSelection<CyColumn> labelColumn = null;
 	
+	// TODO: Add option for the user to choose directed or undirected network
+	
 	@Tunable(description="Column to use for node description", 
 	         longDescription="Select the column to use for node description in Arena3D.",
 	         exampleStringValue="description",
@@ -284,6 +286,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			if (!nodeLayerNames.containsKey(source) || !nodeLayerNames.containsKey(target))
 				continue;
 			
+			// TODO: consider directed/undirected cases
 			json_edge.put("src", nodeLayerNames.get(source));
 			json_edge.put("trg", nodeLayerNames.get(target));
 
@@ -414,6 +417,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		// TODO: test this once new version is released
 		jsonObjectNetwork.put("edgeOpacityByWeight", new Boolean(true));
 		// Optional parameter to use
+		// TODO: add directionality here
 		// jsonObjectNetwork.put("direction", new Boolean(false));
 		return jsonObjectNetwork;
 	}
