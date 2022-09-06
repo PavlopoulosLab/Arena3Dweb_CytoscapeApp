@@ -163,7 +163,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		if (colLayerClass.equals(String.class)) {
 			Set<String> colValues = new HashSet<String>(colLayers.getValues(String.class));
 			for (String colValue : colValues) {
-				if (colValue == null || colValue.equals(""))
+				if ((colValue == null || colValue.equals("")) && keepUnassigned)
 					layers.add(defaultLayerName);
 				else 
 					layers.add(colValue);
@@ -171,7 +171,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		} else if (colLayerClass.equals(Integer.class)) {
 			Set<Integer> colValuesInt = new HashSet<Integer>(colLayers.getValues(Integer.class));
 			for (Integer colValue : colValuesInt) {
-				if (colValue == null)
+				if (colValue == null && keepUnassigned)
 					layers.add(defaultLayerName);
 				else
 					layers.add(colValue.toString());
@@ -214,7 +214,10 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 				if (nodeLayer.equals(""))
 					nodeLayer = defaultLayerName;
 			}
-
+			// ignore node if it belongs to an unassigned layer
+			if (nodeLayer.endsWith(defaultLayerName) && !keepUnassigned)
+				continue;
+			// otherwise add layer to node and continue
 			json_node.put("layer", nodeLayer);
 
 			// define node name for edges
