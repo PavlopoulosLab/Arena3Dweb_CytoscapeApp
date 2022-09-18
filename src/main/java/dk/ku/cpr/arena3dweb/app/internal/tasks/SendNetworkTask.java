@@ -184,6 +184,10 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		// add layers to json object
 		addLayersToJsonNetwork(jsonNet, layers);
 		
+		// get rescaled coordinates
+		HashMap<CyNode, Double> nodeCoordXMap = getNodeCoord(BasicVisualLexicon.NODE_X_LOCATION);
+		HashMap<CyNode, Double> nodeCoordYMap = getNodeCoord(BasicVisualLexicon.NODE_Y_LOCATION);
+
 		// go over all nodes and save info
 		HashMap<CyNode, String> nodeLayerNames = new HashMap<CyNode, String>();
 		JSONArray json_nodes = new JSONArray();
@@ -228,10 +232,12 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			
 			// Node coordinates
 			// json_node.put("position_x", "0");
-			Double node_x = view.getVisualProperty(BasicVisualLexicon.NODE_X_LOCATION);
-			json_node.put("position_y", node_x.toString());
-			Double node_y = view.getVisualProperty(BasicVisualLexicon.NODE_Y_LOCATION);
-			json_node.put("position_z", node_y.toString());
+			if (nodeCoordXMap.containsKey(node) && nodeCoordYMap.containsKey(node)) {
+				Double node_x = nodeCoordXMap.get(node);
+				json_node.put("position_y", node_x.toString());
+				Double node_y = nodeCoordYMap.get(node);
+				json_node.put("position_z", node_y.toString());
+			}
 			
 			// Node size
 			// transform node size into scale by dividing by default node size seems to work 
@@ -451,6 +457,30 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		jsonObjectNetwork.put("layers", json_layers);
 	}
 	
+	private HashMap<CyNode, Double> getNodeCoord(VisualProperty<Double> prop) {
+		HashMap<CyNode, Double> nodeCoordinates = new HashMap<CyNode, Double>();
+		double maxCoord = Double.MIN_VALUE;
+		double minCoord = Double.MAX_VALUE;
+		for (CyNode node : network.getNodeList()) {
+			if (netView == null || !network.containsNode(node)) 
+				continue;
+
+			// Node coordinates
+			View<CyNode> view = netView.getNodeView(node);
+			Double nodeCoord = view.getVisualProperty(prop);
+			nodeCoordinates.put(node, new Double(nodeCoord));
+			if (nodeCoord.doubleValue() > maxCoord)
+				maxCoord = nodeCoord.doubleValue();
+			if (nodeCoord.doubleValue() < minCoord)
+				minCoord = nodeCoord.doubleValue();
+		}
+		for (CyNode node : nodeCoordinates.keySet()) {
+			double newCoord = nodeCoordinates.get(node) - (minCoord + maxCoord)/2;
+			nodeCoordinates.put(node, new Double(newCoord));
+		}
+		return nodeCoordinates;
+	}
+
 	private HashMap<CyEdge, Double> getEdgeScales() {
 		HashMap<CyEdge, Double> edgeScales = new HashMap<CyEdge, Double>();
 		double maxWidth = 0.0;
