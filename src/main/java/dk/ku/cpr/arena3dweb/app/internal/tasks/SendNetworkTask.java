@@ -54,7 +54,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 	final private CyServiceRegistrar reg;
 	private CyNetworkView netView;
 	
-	private static int limitUniqueAttributes = 10;	
+	private static int limitUniqueAttributes = 18;	
 	private boolean doFullEncoding = true;
 	
 	@Tunable(description = "Network to send", 
@@ -69,14 +69,12 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 	         required=true)
 	public ListSingleSelection<CyColumn> layerColumn = null;
 
-	// @Tunable(description="Column to use for node labels",
-	// longDescription="Select the column to use for node labels in Arena3D.",
-	// exampleStringValue="name",
-	// required=true)
-	// public ListSingleSelection<CyColumn> labelColumn = null;
-	
-	// TODO: Add option for the user to choose directed or undirected network
-	
+	@Tunable(description="Consider edges as directed", 
+	         longDescription="Option to set edge directionality.",
+	         exampleStringValue="false",
+	         required=false)
+	public boolean directed = false;
+
 	@Tunable(description="Column to use for node description", 
 	         longDescription="Select the column to use for node description in Arena3D.",
 	         exampleStringValue="description",
@@ -292,10 +290,17 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			if (!nodeLayerNames.containsKey(source) || !nodeLayerNames.containsKey(target))
 				continue;
 			
-			// TODO: consider directed/undirected cases
-			json_edge.put("src", nodeLayerNames.get(source));
-			json_edge.put("trg", nodeLayerNames.get(target));
-
+			// Consider if edges are directed or not (and if not, sort nodes such that we always have the same sequence)
+			String sourceName = nodeLayerNames.get(source);
+			String targetName = nodeLayerNames.get(target);
+			if (directed || sourceName.compareTo(targetName) < 0) {
+				json_edge.put("src", sourceName);
+				json_edge.put("trg", targetName);
+			} else {
+				json_edge.put("src", targetName);
+				json_edge.put("trg", sourceName);										
+			}
+			
 			// Edge color and width
 			if (edgeScaleMap.containsKey(edge))
 				json_edge.put("opacity", new Double(edgeScaleMap.get(edge)).toString());
