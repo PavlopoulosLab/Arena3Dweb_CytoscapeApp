@@ -75,13 +75,13 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 	         required=false)
 	public boolean directed = false;
 
-	@Tunable(description="Column to use for node description", 
+	@Tunable(description="Column to use for node descriptions", 
 	         longDescription="Select the column to use for node description in Arena3D.",
 	         exampleStringValue="description",
 	         required=false)
 	public ListSingleSelection<String> descrColumn = null;
 
-	@Tunable(description="Column to use for node URL", 
+	@Tunable(description="Column to use for node URLs", 
 	         longDescription="Select the column to use for node URL in Arena3D.",
 	         exampleStringValue="url",
 	         required=false)
