@@ -8,13 +8,11 @@ import org.cytoscape.view.model.CyNetworkView;
 import org.cytoscape.work.TaskFactory;
 import org.cytoscape.work.TaskIterator;
 
-public class SendNetworkTaskFactory extends AbstractNetworkTaskFactory implements NetworkViewTaskFactory, TaskFactory{
-
-	// NodeViewTaskFactory, 
+public class ExportNetworkTaskFactory extends AbstractNetworkTaskFactory implements NetworkViewTaskFactory, TaskFactory{
 
 	final CyServiceRegistrar registrar;
 	
-	public SendNetworkTaskFactory(final CyServiceRegistrar registrar) {
+	public ExportNetworkTaskFactory(final CyServiceRegistrar registrar) {
 		this.registrar = registrar;
 	}
 
@@ -23,7 +21,7 @@ public class SendNetworkTaskFactory extends AbstractNetworkTaskFactory implement
 	}
 
 	public TaskIterator createTaskIterator() {
-		return new TaskIterator(new SendNetworkTask(registrar, null, null));
+		return new TaskIterator(new ExportNetworkTask(registrar, null, null));
 	}
 
 	public boolean isReady(CyNetwork net) {
@@ -31,7 +29,7 @@ public class SendNetworkTaskFactory extends AbstractNetworkTaskFactory implement
 	}
 
 	public TaskIterator createTaskIterator(CyNetwork net) {
-		return new TaskIterator(new SendNetworkTask(registrar, net, null));
+		return new TaskIterator(new ExportNetworkTask(registrar, net, null));
 	}
 
 	public boolean isReady(CyNetworkView arg0) {
@@ -39,7 +37,7 @@ public class SendNetworkTaskFactory extends AbstractNetworkTaskFactory implement
 	}
 
 	public TaskIterator createTaskIterator(CyNetworkView netView) {
-		return new TaskIterator(new SendNetworkTask(registrar, netView.getModel(), netView));	
+		return new TaskIterator(new ExportNetworkTask(registrar, netView.getModel(), netView));	
 	}
 
 }

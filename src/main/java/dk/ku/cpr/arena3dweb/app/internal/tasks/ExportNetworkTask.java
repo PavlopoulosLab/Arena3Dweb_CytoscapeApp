@@ -1,9 +1,6 @@
 package dk.ku.cpr.arena3dweb.app.internal.tasks;
 
-import java.awt.Desktop;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.io.File;
 import java.util.Collection;
 
 import org.cytoscape.application.CyApplicationManager;
@@ -17,27 +14,30 @@ import org.cytoscape.work.AbstractTask;
 import org.cytoscape.work.ObservableTask;
 import org.cytoscape.work.ProvidesTitle;
 import org.cytoscape.work.TaskMonitor;
-import org.cytoscape.work.TaskMonitor.Level;
 import org.cytoscape.work.Tunable;
 import org.cytoscape.work.util.ListSingleSelection;
 import org.json.simple.JSONObject;
 
-import dk.ku.cpr.arena3dweb.app.internal.io.ConnectionException;
-import dk.ku.cpr.arena3dweb.app.internal.io.HttpUtils;
 import dk.ku.cpr.arena3dweb.app.internal.utils.ModelUtils;
 
-public class SendNetworkTask extends AbstractTask implements ObservableTask {
+public class ExportNetworkTask extends AbstractTask implements ObservableTask {
 
 	final private CyServiceRegistrar reg;
 	private CyNetworkView netView;
 	
-	private static int limitUniqueAttributes = 18;	
+	private static int limitUniqueAttributes = 18;
 	
 	@Tunable(description = "Network to send", 
 			longDescription = StringToModel.CY_NETWORK_LONG_DESCRIPTION, 
 			exampleStringValue = StringToModel.CY_NETWORK_EXAMPLE_STRING, 
 			context = "nogui", required=true)
 	public CyNetwork network;
+
+	@Tunable(description="File to save network to", params = "input=false",
+	         longDescription="Name of file to save the network to.",
+	         exampleStringValue="false",
+	         required=true)
+	public File jsonFile = null;
 
 	@Tunable(description="Column to use for layers", 
 	         longDescription="Select the column to use as layers in Arena3D.",
@@ -78,7 +78,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 	public String defaultLayerName = "unassigned";
 
 	
-	public SendNetworkTask(CyServiceRegistrar reg, CyNetwork net, CyNetworkView netView) {
+	public ExportNetworkTask(CyServiceRegistrar reg, CyNetwork net, CyNetworkView netView) {
 		this.reg = reg;
 		if (net != null)
 			network = net;
@@ -98,10 +98,10 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 	
 	@Override
 	public void run(TaskMonitor monitor) throws Exception {
-		monitor.setTitle("Send network to Arena3D");
+		monitor.setTitle("Export network to Arena3D session file");
 		// check if we have a network
 		if (network == null) {
-			monitor.showMessage(TaskMonitor.Level.WARN, "No network to send");
+			monitor.showMessage(TaskMonitor.Level.WARN, "No network to export");
 			return;
 		}
 		
@@ -116,6 +116,11 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			}
 		}
 
+		if (jsonFile == null) {
+			monitor.showMessage(TaskMonitor.Level.WARN, "No file to export to.");
+		}
+		File file = jsonFile;
+
 		CyColumn colLayers = layerColumn.getSelectedValue();
 		String colURL = urlColumn.getSelectedValue();
 		String colDescr = descrColumn.getSelectedValue();
@@ -125,40 +130,12 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 			return;
 		}
 		
-		// Get the results
-		JSONObject results;
-		try {
-			// results = HttpUtils.postJSON(getExampleJsonNetwork(), reg);
-			results = HttpUtils.postJSON(jsonNet, reg);
-		} catch (ConnectionException e) {
-			//e.printStackTrace();
-			monitor.showMessage(Level.ERROR, "Encountered network error: " + e.getMessage());
-			return;
-		}
-		
-		if (results != null && results.containsKey("url")) {
-			String returnURL = (String) results.get("url");
-			System.out.println("Succesfully sent network to Arena3dWeb: " + returnURL);
-			monitor.showMessage(Level.INFO, "Succesfully sent network to Arena3dWeb: " + returnURL);
-			if (Desktop.isDesktopSupported()) {
-				Desktop desktop = Desktop.getDesktop();
-				try {
-					desktop.browse(new URI(returnURL));
-				} catch (IOException | URISyntaxException e) {
-					// e.printStackTrace();
-					monitor.showMessage(Level.ERROR, "Encountered error: " + e.getMessage());
-				}
-			} else {
-				Runtime runtime = Runtime.getRuntime();
-				try {
-					runtime.exec("xdg-open " + returnURL);
-				} catch (IOException e) {
-					// e.printStackTrace();
-					monitor.showMessage(Level.ERROR, "Encountered error: " + e.getMessage());
-				}
-			}
+		// Export the network
+		System.out.println("Export network to " + file.getAbsolutePath());
+		monitor.showMessage(TaskMonitor.Level.INFO, "Export network to " + file.getAbsolutePath());
+		// TaskIterator ti = exportTF.createTaskIterator(selectedTable, file);
+		// insertTasksAfterCurrentTask(ti);
 
-		}		
 	}
 
 	@ProvidesTitle

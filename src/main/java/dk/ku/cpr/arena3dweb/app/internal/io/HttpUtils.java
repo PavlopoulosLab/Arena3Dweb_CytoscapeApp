@@ -7,10 +7,7 @@ import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
-import java.net.URLEncoder;
 import java.net.UnknownHostException;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
 
 import org.cytoscape.io.util.StreamUtil;
 import org.cytoscape.service.util.CyServiceRegistrar;
@@ -21,7 +18,6 @@ public class HttpUtils {
 
 	public static String ARENA3DWEB_URL = "https://bib.fleming.gr/bib/api/arena3dweb";
 	
-	@SuppressWarnings("unchecked")
 	public static JSONObject postJSON(JSONObject jsonNetwork, CyServiceRegistrar reg) throws ConnectionException {
 
 		// Set up our connection

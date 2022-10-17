@@ -1,9 +1,14 @@
 package dk.ku.cpr.arena3dweb.app.internal.utils;
 
 import java.awt.Paint;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -23,6 +28,7 @@ import org.cytoscape.view.presentation.property.BasicVisualLexicon;
 import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualPropertyDependency;
 import org.cytoscape.view.vizmap.VisualStyle;
+import org.cytoscape.work.util.ListSingleSelection;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
@@ -206,8 +212,7 @@ public class ModelUtils {
 		// add all edges to the json object
 		jsonNet.put("edges", json_edges);
 		
-		// output the json we are sending
-		// TODO: [Release] remove output 
+		// output the json we are sending, only for testing purposes
 		System.out.println(jsonNet);
 
 		return jsonNet;
@@ -269,13 +274,11 @@ public class ModelUtils {
 		jsonObjectNetwork.put("scene", json_scene);
 		// get color from default node label color
 		Paint default_node_label_color = netStyle.getDefaultValue(BasicVisualLexicon.NODE_LABEL_COLOR);
-		// TODO: test this once new version is released
 		jsonObjectNetwork.put("universalLabelColor", BasicVisualLexicon.NODE_LABEL_COLOR.toSerializableString(default_node_label_color));
 		// use edge weight to opacity mapping
-		// TODO: test this once new version is released
 		jsonObjectNetwork.put("edgeOpacityByWeight", new Boolean(true));
 		// Optional parameter to use
-		// TODO: test directionality here
+		// set directionality
 		jsonObjectNetwork.put("direction", new Boolean(directed));
 		return jsonObjectNetwork;
 	}
@@ -485,6 +488,79 @@ public class ModelUtils {
 		// System.out.println(jsonObjectNetwork);
 		
 		return jsonObjectNetwork;
+	}
+
+	public static ListSingleSelection<String> initDescrColumn(CyNetwork network, ListSingleSelection<String> descrColumn) {
+		Collection<CyColumn> colList = network.getDefaultNodeTable().getColumns();
+		List<String> showList = new ArrayList<String>();
+		for (CyColumn col : colList) {
+			if (col.getType().equals(String.class)) {
+				showList.add(col.getName());
+			}
+		}
+		Collections.sort(showList);
+		showList.add("");
+		descrColumn = new ListSingleSelection<String>(showList);
+		descrColumn.setSelectedValue("");
+		if (network.getDefaultNodeTable().getColumn("stringdb::description") != null) {
+			descrColumn.setSelectedValue("stringdb::description");
+		} else if (network.getDefaultNodeTable().getColumn("description") != null) {
+			descrColumn.setSelectedValue("description");
+		}
+		return descrColumn;
+    }
+
+	public static ListSingleSelection<String> initURLColumn(CyNetwork network, ListSingleSelection<String> urlColumn) {
+		Collection<CyColumn> colList = network.getDefaultNodeTable().getColumns();
+		List<String> showList = new ArrayList<String>();
+		for (CyColumn col : colList) {
+			if (col.getType().equals(String.class)) {
+				showList.add(col.getName());
+			}
+		}
+		Collections.sort(showList);
+		showList.add("");
+		urlColumn = new ListSingleSelection<String>(showList);
+		urlColumn.setSelectedValue("");
+		if (network.getDefaultNodeTable().getColumn("stringdb::url") != null) {
+			urlColumn.setSelectedValue("stringdb::url");
+		} else if (network.getDefaultNodeTable().getColumn("url") != null) {
+			urlColumn.setSelectedValue("url");
+		} 
+		// TODO: why would I put the name for URL?
+		//else if (network.getDefaultNodeTable().getColumn("name") != null) {
+		//	urlColumn.setSelectedValue("name");
+		// }
+		return urlColumn;
+    }
+
+	public static ListSingleSelection<CyColumn> initLayerColumn(CyNetwork network, ListSingleSelection<CyColumn> layerColumn, int limitUniqueAttributes) {
+		Collection<CyColumn> colList = network.getDefaultNodeTable().getColumns();
+		List<CyColumn> showList = new ArrayList<CyColumn>();
+		for (CyColumn col : colList) {
+			Set<?> colValues = new HashSet<>();
+			int numValues = network.getNodeCount();
+			if (col.getType().equals(String.class)) {
+				colValues = new HashSet<String>(col.getValues(String.class));
+			} else if (col.getType().equals(Integer.class)) {
+				colValues = new HashSet<Integer>(col.getValues(Integer.class));
+			}
+			if (colValues.size() != numValues && colValues.size() > 1
+					&& colValues.size() <= limitUniqueAttributes) {
+				showList.add(col);
+			}
+		}
+		Collections.sort(showList, new LexicographicComparator());
+		layerColumn = new ListSingleSelection<CyColumn>(showList);
+		layerColumn.setSelectedValue(showList.get(0));
+		// tableColumn.setSelectedValue(network.getDefaultNodeTable().getColumn("layer"));
+		return layerColumn;
+    }
+    
+	public static class LexicographicComparator implements Comparator<CyColumn> {
+	    public int compare(CyColumn a, CyColumn b) {
+	        return a.getName().compareToIgnoreCase(b.getName());
+	    }
 	}
 
 }

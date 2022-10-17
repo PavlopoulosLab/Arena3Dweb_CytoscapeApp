@@ -19,11 +19,11 @@ import org.cytoscape.service.util.AbstractCyActivator;
 import org.cytoscape.service.util.CyServiceRegistrar;
 import org.cytoscape.task.NetworkTaskFactory;
 import org.cytoscape.task.NetworkViewTaskFactory;
-import org.cytoscape.task.NodeViewTaskFactory;
 import org.cytoscape.work.TaskFactory;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.Version;
 
+import dk.ku.cpr.arena3dweb.app.internal.tasks.ExportNetworkTaskFactory;
 import dk.ku.cpr.arena3dweb.app.internal.tasks.SendNetworkTaskFactory;
 import dk.ku.cpr.arena3dweb.app.internal.tasks.VersionTaskFactory;
 
@@ -41,10 +41,10 @@ public class CyActivator extends AbstractCyActivator {
 		final Logger logger = Logger.getLogger(CyUserLog.NAME);
 
 		// Get our version number
-		// TODO: [Release] Change version
 		Version v = bc.getBundle().getVersion();
 		String version = v.toString(); // The full version
 
+		// TODO: add command
 		{
 			VersionTaskFactory versionFactory = new VersionTaskFactory(version);
 			Properties versionProps = new Properties();
@@ -65,7 +65,6 @@ public class CyActivator extends AbstractCyActivator {
 
 		
 		{
-			// TODO: add task to export network to Arena3D json format file
 			SendNetworkTaskFactory sendNetwork = new SendNetworkTaskFactory(registrar);
 			Properties props = new Properties();
 			// menu properties for a network without a view 
@@ -84,6 +83,25 @@ public class CyActivator extends AbstractCyActivator {
 
 		}
 		
+		{
+			ExportNetworkTaskFactory exportNetwork = new ExportNetworkTaskFactory(registrar);
+			Properties props = new Properties();
+			// menu properties for a network without a view 
+			props.setProperty(PREFERRED_MENU, "Apps.Arena3Dweb");
+			props.setProperty(TITLE, "Export network");
+			props.setProperty(MENU_GRAVITY, "1.0");
+			props.setProperty(IN_MENU_BAR, "true");
+			registerService(bc, exportNetwork, NetworkTaskFactory.class, props);
+			// menu properties for a network with a view
+			Properties props2 = new Properties();
+			props2.setProperty(PREFERRED_MENU, "Apps.Arena3Dweb");
+			props2.setProperty(TITLE, "Export network");
+			props2.setProperty(MENU_GRAVITY, "1.0");
+			props2.setProperty(IN_MENU_BAR, "false");
+			registerService(bc, exportNetwork, NetworkViewTaskFactory.class, props2);
+
+		}
+
 		logger.info("Arena3DwebApp " + version + " initialized.");
 		System.out.println("Arena3DwebApp " + version + " initialized.");
 	
