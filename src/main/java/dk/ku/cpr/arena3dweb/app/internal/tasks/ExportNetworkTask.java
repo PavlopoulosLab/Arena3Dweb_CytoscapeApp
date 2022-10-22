@@ -1,6 +1,8 @@
 package dk.ku.cpr.arena3dweb.app.internal.tasks;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Collection;
 
 import org.cytoscape.application.CyApplicationManager;
@@ -15,6 +17,7 @@ import org.cytoscape.work.ObservableTask;
 import org.cytoscape.work.ProvidesTitle;
 import org.cytoscape.work.TaskMonitor;
 import org.cytoscape.work.Tunable;
+import org.cytoscape.work.TaskMonitor.Level;
 import org.cytoscape.work.util.ListSingleSelection;
 import org.json.simple.JSONObject;
 
@@ -136,6 +139,23 @@ public class ExportNetworkTask extends AbstractTask implements ObservableTask {
 		// TaskIterator ti = exportTF.createTaskIterator(selectedTable, file);
 		// insertTasksAfterCurrentTask(ti);
 
+		FileWriter fw = null;
+		try {
+			// Constructs a FileWriter given a file name, using the platform's default charset
+			fw = new FileWriter(file);
+			fw.write(jsonNet.toJSONString());
+		} catch (IOException e) {
+			// e.printStackTrace();
+			monitor.showMessage(Level.ERROR, "Encountered error: " + e.getMessage());
+		} finally {
+			try {
+				fw.flush();
+				fw.close();
+			} catch (IOException e) {
+				// e.printStackTrace();
+				monitor.showMessage(Level.ERROR, "Encountered error: " + e.getMessage());
+			}
+		}
 	}
 
 	@ProvidesTitle
