@@ -88,7 +88,7 @@ public class CyActivator extends AbstractCyActivator {
 			Properties props = new Properties();
 			// menu properties for a network without a view 
 			props.setProperty(PREFERRED_MENU, "Apps.Arena3Dweb");
-			props.setProperty(TITLE, "Export network");
+			props.setProperty(TITLE, "Export network to file");
 			props.setProperty(MENU_GRAVITY, "1.0");
 			props.setProperty(IN_MENU_BAR, "true");
 			registerService(bc, exportNetwork, NetworkTaskFactory.class, props);

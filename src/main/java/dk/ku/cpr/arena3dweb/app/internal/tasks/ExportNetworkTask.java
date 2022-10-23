@@ -36,9 +36,9 @@ public class ExportNetworkTask extends AbstractTask implements ObservableTask {
 			context = "nogui", required=true)
 	public CyNetwork network;
 
-	@Tunable(description="File to save network to", params = "input=false",
+	@Tunable(description="File to save network to", params = "input=false;fileCategory=network",
 	         longDescription="Name of file to save the network to.",
-	         exampleStringValue="false",
+	         exampleStringValue="network.json",
 	         required=true)
 	public File jsonFile = null;
 
@@ -123,7 +123,12 @@ public class ExportNetworkTask extends AbstractTask implements ObservableTask {
 			monitor.showMessage(TaskMonitor.Level.WARN, "No file to export to.");
 		}
 		File file = jsonFile;
-
+		if (file.getName().endsWith(".json")) {
+		    // filename is OK as-is
+		} else {
+		    file = new File(file.toString() + ".json");  // append .json
+		}
+		
 		CyColumn colLayers = layerColumn.getSelectedValue();
 		String colURL = urlColumn.getSelectedValue();
 		String colDescr = descrColumn.getSelectedValue();
@@ -136,8 +141,6 @@ public class ExportNetworkTask extends AbstractTask implements ObservableTask {
 		// Export the network
 		System.out.println("Export network to " + file.getAbsolutePath());
 		monitor.showMessage(TaskMonitor.Level.INFO, "Export network to " + file.getAbsolutePath());
-		// TaskIterator ti = exportTF.createTaskIterator(selectedTable, file);
-		// insertTasksAfterCurrentTask(ti);
 
 		FileWriter fw = null;
 		try {
