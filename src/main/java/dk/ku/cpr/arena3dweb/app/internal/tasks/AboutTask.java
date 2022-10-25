@@ -3,35 +3,44 @@ package dk.ku.cpr.arena3dweb.app.internal.tasks;
 import java.util.Arrays;
 import java.util.List;
 
+import org.cytoscape.service.util.CyServiceRegistrar;
+import org.cytoscape.util.swing.OpenBrowser;
 import org.cytoscape.work.AbstractTask;
 import org.cytoscape.work.ObservableTask;
 import org.cytoscape.work.TaskMonitor;
 import org.cytoscape.work.TaskMonitor.Level;
 import org.cytoscape.work.json.JSONResult;
 
-public class VersionTask extends AbstractTask implements ObservableTask {
+public class AboutTask extends AbstractTask implements ObservableTask {
 
 	final String version;
-	public VersionTask(final String version) {
-			this.version = version;
+	final String aboutURI = "https://apps.cytoscape.org/apps/Arena3DwebApp";
+	CyServiceRegistrar reg;
+	
+	public AboutTask(final String version, CyServiceRegistrar reg) {
+		this.version = version;
+		this.reg = reg;
 	}
 
 	public void run(TaskMonitor monitor) {
-		monitor.setTitle("Arena3DwebApp version");
-		monitor.showMessage(Level.INFO, version);
+		monitor.setTitle("Arena3DwebApp About page");
+		monitor.showMessage(Level.INFO, aboutURI);
+		OpenBrowser openBrowser = reg.getService(OpenBrowser.class);
+		if (openBrowser != null)
+			openBrowser.openURL(aboutURI);
 	}
 
 	@SuppressWarnings("unchecked")
 	public <R> R getResults(Class<? extends R> type) {
 		if (type.equals(String.class)) {
-			String response = "Version: "+version+"\n";
+			String response = "About URI: "+aboutURI+"\n";
 			return (R)response;
 		} else if (type.equals(JSONResult.class)) {
 			return (R)new JSONResult() {
-				public String getJSON() { return "{\"version\":\""+version+"\"}"; }
+				public String getJSON() { return "{\"aboutURI\":\""+aboutURI+"\"}"; }
 			};
 		}
-		return (R)version;
+		return (R)aboutURI;
 	}
 
 	@SuppressWarnings("unchecked")

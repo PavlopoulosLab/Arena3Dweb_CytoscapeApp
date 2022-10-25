@@ -25,7 +25,7 @@ import org.osgi.framework.Version;
 
 import dk.ku.cpr.arena3dweb.app.internal.tasks.ExportNetworkTaskFactory;
 import dk.ku.cpr.arena3dweb.app.internal.tasks.SendNetworkTaskFactory;
-import dk.ku.cpr.arena3dweb.app.internal.tasks.VersionTaskFactory;
+import dk.ku.cpr.arena3dweb.app.internal.tasks.AboutTaskFactory;
 
 public class CyActivator extends AbstractCyActivator {
 	String JSON_EXAMPLE = "{\"SUID\":1234}";
@@ -46,21 +46,21 @@ public class CyActivator extends AbstractCyActivator {
 
 		// TODO: add command
 		{
-			VersionTaskFactory versionFactory = new VersionTaskFactory(version);
-			Properties versionProps = new Properties();
+			AboutTaskFactory aboutFactory = new AboutTaskFactory(version, registrar);
+			Properties aboutProps = new Properties();
 			// menu properties
-			versionProps.setProperty(PREFERRED_MENU, "Apps.Arena3Dweb");
-			versionProps.setProperty(TITLE, "Version");
-			versionProps.setProperty(MENU_GRAVITY, "2.0");
-			versionProps.setProperty(IN_MENU_BAR, "true");
+			aboutProps.setProperty(PREFERRED_MENU, "Apps.Arena3Dweb");
+			aboutProps.setProperty(TITLE, "About");
+			aboutProps.setProperty(MENU_GRAVITY, "3.0");
+			aboutProps.setProperty(IN_MENU_BAR, "true");
 			// command properties
-			versionProps.setProperty(COMMAND_NAMESPACE, "arena3dweb");
-			versionProps.setProperty(COMMAND, "version");
-			versionProps.setProperty(COMMAND_DESCRIPTION, "Returns the version of Arena3DwebApp");
-			versionProps.setProperty(COMMAND_LONG_DESCRIPTION, "Returns the version of Arena3DwebApp.");
-			versionProps.setProperty(COMMAND_SUPPORTS_JSON, "true");
-			versionProps.setProperty(COMMAND_EXAMPLE_JSON, "{\"version\":\"0.1.0\"}");
-			registerService(bc, versionFactory, TaskFactory.class, versionProps);
+			aboutProps.setProperty(COMMAND_NAMESPACE, "arena3dweb");
+			aboutProps.setProperty(COMMAND, "about");
+			aboutProps.setProperty(COMMAND_DESCRIPTION, "Returns the about URL of Arena3DwebApp.");
+			aboutProps.setProperty(COMMAND_LONG_DESCRIPTION, "Returns the about URL of Arena3DwebApp.");
+			aboutProps.setProperty(COMMAND_SUPPORTS_JSON, "true");
+			// versionProps.setProperty(COMMAND_EXAMPLE_JSON, "{\"version\":\"1.0.0\"}");
+			registerService(bc, aboutFactory, TaskFactory.class, aboutProps);
 		}
 
 		
@@ -89,14 +89,14 @@ public class CyActivator extends AbstractCyActivator {
 			// menu properties for a network without a view 
 			props.setProperty(PREFERRED_MENU, "Apps.Arena3Dweb");
 			props.setProperty(TITLE, "Export network to file");
-			props.setProperty(MENU_GRAVITY, "1.0");
+			props.setProperty(MENU_GRAVITY, "2.0");
 			props.setProperty(IN_MENU_BAR, "true");
 			registerService(bc, exportNetwork, NetworkTaskFactory.class, props);
 			// menu properties for a network with a view
 			Properties props2 = new Properties();
 			props2.setProperty(PREFERRED_MENU, "Apps.Arena3Dweb");
-			props2.setProperty(TITLE, "Export network");
-			props2.setProperty(MENU_GRAVITY, "1.0");
+			props2.setProperty(TITLE, "Export network to file");
+			props2.setProperty(MENU_GRAVITY, "2.0");
 			props2.setProperty(IN_MENU_BAR, "false");
 			registerService(bc, exportNetwork, NetworkViewTaskFactory.class, props2);
 

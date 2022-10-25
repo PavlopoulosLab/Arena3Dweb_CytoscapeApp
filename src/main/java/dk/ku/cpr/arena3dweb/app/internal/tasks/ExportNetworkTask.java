@@ -101,7 +101,7 @@ public class ExportNetworkTask extends AbstractTask implements ObservableTask {
 	
 	@Override
 	public void run(TaskMonitor monitor) throws Exception {
-		monitor.setTitle("Export network to Arena3D session file");
+		monitor.setTitle("Export network as Arena3Dweb session file");
 		// check if we have a network
 		if (network == null) {
 			monitor.showMessage(TaskMonitor.Level.WARN, "No network to export");
@@ -163,7 +163,7 @@ public class ExportNetworkTask extends AbstractTask implements ObservableTask {
 
 	@ProvidesTitle
 	public String getTitle() {
-		return "Send current network to Arena3Dweb";
+		return "Export network as Arena3Dweb session file";
 	}
 
 
