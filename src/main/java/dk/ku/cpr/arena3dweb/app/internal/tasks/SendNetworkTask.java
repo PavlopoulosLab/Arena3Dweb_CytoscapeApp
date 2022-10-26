@@ -4,7 +4,9 @@ import java.awt.Desktop;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 
 import org.cytoscape.application.CyApplicationManager;
 import org.cytoscape.command.StringToModel;
@@ -18,6 +20,7 @@ import org.cytoscape.work.ObservableTask;
 import org.cytoscape.work.ProvidesTitle;
 import org.cytoscape.work.TaskMonitor;
 import org.cytoscape.work.TaskMonitor.Level;
+import org.cytoscape.work.json.JSONResult;
 import org.cytoscape.work.Tunable;
 import org.cytoscape.work.util.ListSingleSelection;
 import org.json.simple.JSONObject;
@@ -30,6 +33,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 
 	final private CyServiceRegistrar reg;
 	private CyNetworkView netView;
+	private String returnURL;
 	
 	private static int limitUniqueAttributes = 18;	
 	
@@ -137,7 +141,7 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 		}
 		
 		if (results != null && results.containsKey("url")) {
-			String returnURL = (String) results.get("url");
+			returnURL = (String) results.get("url");
 			System.out.println("Succesfully sent network to Arena3dWeb: " + returnURL);
 			monitor.showMessage(Level.INFO, "Succesfully sent network to Arena3dWeb: " + returnURL);
 			if (Desktop.isDesktopSupported()) {
@@ -167,8 +171,21 @@ public class SendNetworkTask extends AbstractTask implements ObservableTask {
 	}
 
 
-    public <R> R getResults(Class<? extends R> type) {
-		return null;
+	@SuppressWarnings("unchecked")
+	public <R> R getResults(Class<? extends R> type) {
+		if (type.equals(String.class)) {
+			String response = "Network URI: "+returnURL+"\n";
+			return (R)response;
+		} else if (type.equals(JSONResult.class)) {
+			return (R)new JSONResult() {
+				public String getJSON() { return "{\"networkURI\":\""+returnURL+"\"}"; }
+			};
+		}
+		return (R)returnURL;
 	}
-    
+
+	@SuppressWarnings("unchecked")
+	public List<Class<?>> getResultClasses() {
+		return Arrays.asList(JSONResult.class, String.class);
+	}    
 }

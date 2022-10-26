@@ -213,7 +213,8 @@ public class ModelUtils {
 		jsonNet.put("edges", json_edges);
 		
 		// output the json we are sending, only for testing purposes
-		System.out.println(jsonNet);
+		// TODO: [Release] don't print out json file
+		// System.out.println(jsonNet);
 
 		return jsonNet;
 	}
@@ -527,10 +528,6 @@ public class ModelUtils {
 		} else if (network.getDefaultNodeTable().getColumn("url") != null) {
 			urlColumn.setSelectedValue("url");
 		} 
-		// TODO: why would I put the name for URL?
-		//else if (network.getDefaultNodeTable().getColumn("name") != null) {
-		//	urlColumn.setSelectedValue("name");
-		// }
 		return urlColumn;
     }
 

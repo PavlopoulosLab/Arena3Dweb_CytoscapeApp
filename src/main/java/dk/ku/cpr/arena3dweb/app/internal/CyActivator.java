@@ -44,7 +44,6 @@ public class CyActivator extends AbstractCyActivator {
 		Version v = bc.getBundle().getVersion();
 		String version = v.toString(); // The full version
 
-		// TODO: add command
 		{
 			AboutTaskFactory aboutFactory = new AboutTaskFactory(version, registrar);
 			Properties aboutProps = new Properties();
@@ -56,7 +55,7 @@ public class CyActivator extends AbstractCyActivator {
 			// command properties
 			aboutProps.setProperty(COMMAND_NAMESPACE, "arena3dweb");
 			aboutProps.setProperty(COMMAND, "about");
-			aboutProps.setProperty(COMMAND_DESCRIPTION, "Returns the about URL of Arena3DwebApp.");
+			aboutProps.setProperty(COMMAND_DESCRIPTION, "Return the about URL of Arena3DwebApp.");
 			aboutProps.setProperty(COMMAND_LONG_DESCRIPTION, "Returns the about URL of Arena3DwebApp.");
 			aboutProps.setProperty(COMMAND_SUPPORTS_JSON, "true");
 			// versionProps.setProperty(COMMAND_EXAMPLE_JSON, "{\"version\":\"1.0.0\"}");
@@ -80,7 +79,14 @@ public class CyActivator extends AbstractCyActivator {
 			props2.setProperty(MENU_GRAVITY, "1.0");
 			props2.setProperty(IN_MENU_BAR, "false");
 			registerService(bc, sendNetwork, NetworkViewTaskFactory.class, props2);
-
+			// command props
+			Properties props3 = new Properties();
+			props3.setProperty(COMMAND_NAMESPACE, "arena3dweb");
+			props3.setProperty(COMMAND, "send");
+			props3.setProperty(COMMAND_DESCRIPTION, "Send network to Arena3Dweb and output URL.");
+			props3.setProperty(COMMAND_LONG_DESCRIPTION, "Send network to Arena3Dweb and output URL.");
+			props3.setProperty(COMMAND_SUPPORTS_JSON, "true");
+			registerService(bc, sendNetwork, TaskFactory.class, props3);
 		}
 		
 		{
@@ -99,6 +105,13 @@ public class CyActivator extends AbstractCyActivator {
 			props2.setProperty(MENU_GRAVITY, "2.0");
 			props2.setProperty(IN_MENU_BAR, "false");
 			registerService(bc, exportNetwork, NetworkViewTaskFactory.class, props2);
+			Properties props3 = new Properties();
+			props3.setProperty(COMMAND_NAMESPACE, "arena3dweb");
+			props3.setProperty(COMMAND, "export");
+			props3.setProperty(COMMAND_DESCRIPTION, "Export network to Arena3Dweb session file.");
+			props3.setProperty(COMMAND_LONG_DESCRIPTION, "Export network to Arena3Dweb session file.");
+			props3.setProperty(COMMAND_SUPPORTS_JSON, "false");
+			registerService(bc, exportNetwork, TaskFactory.class, props3);
 
 		}
 
