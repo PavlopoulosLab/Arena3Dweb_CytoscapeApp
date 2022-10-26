@@ -1,1 +1,15 @@
-# Arena3Dweb_CytoscapeApp
+# Arena3DwebApp for Cytoscape
+
+## Description
+The Arena3DwebApp enables users to load their 2D Cytoscape networks instantly in [Arena3Dweb](https://bib.fleming.gr:8084/app/arena3d). The app provides a simple interface, where the user can configure how the Cytoscape network will be transferred. The most important setting in the dedicated dialog is choosing which node attribute contains the layer information. It could be any numeric or string value that defines up to 18 different non-overlapping groups, which will be translated into layers. Furthermore, Arena3DwebApp extracts the currently displayed color, size and coordinates of the nodes as well as the directionality, color, thickness, and transparency of the edges. The node label font and the network background are also transferred. The user can choose which column to use for the node description and URL that can be seen in Arena3Dweb as additional node information (on node right-click). If there are nodes that do not participate in any named layer, they are added to a layer named “unassigned” by default, but the user can choose to not import them in Arena3Dweb. The app generates a JSON file that is automatically sent to Arena3Dweb and gets displayed in the user’s default web browser. If users want to share the layered network or open it later, they can export the JSON file from Cytoscape and import it in Arena3Dweb as a session file.  
+
+## Example
+To illustrate the interoperability between Cytoscape and Arena3Dweb, we used [stringApp v2.0](https://apps.cytoscape.org/apps/stringapp) and Arena3DwebApp in combination from Cytoscape. Specifically, we used the “STITCH: protein/compound query” function of stringApp to search for the compound “aspirin” with a confidence score cutoff of 0.7 and up to ten additional interactors (compounds or human proteins). We then used stringApp to retrieve functional enrichment for the proteins interacting with aspirin and added all enriched diseases, tissues and KEGG pathways to the network (two, four, and five, respectively). To transfer the network to Arena3Dweb, we opened the Arena3DwebApp dialog box. We chose to use the column “stringdb::node type” to define the layers in Arena3Dweb, which means that chemical compounds will be placed in one layer, proteins in a second, and enriched terms in a third. We chose not to consider edges as directed, since STRING networks are undirected, and that the column “stringdb::description” should be used for node descriptions. Finally, we submitted this three-layer network to Arena3Dweb for further 3D manipulations. In the enriched_term layer, we show the three categories of enriched terms from STRING in three separate neighborhoods; KEGG pathways on top, tissues in the middle and diseases on the bottom.
+
+## Developers
+Nadezhda T. Doncheva (NNF Center for Protein Research, University of Copenhagen)  
+Maria Kokoli (Institute for Fundamental Biomedical Research, BSRC "Alexander Fleming")  
+Vagelis Karatzas (Institute for Fundamental Biomedical Research, BSRC "Alexander Fleming")  
+Fotis Baltoumas (Institute for Fundamental Biomedical Research, BSRC "Alexander Fleming")  
+Lars Juhl Jensen (NNF Center for Protein Research, University of Copenhagen)  
+Georgios Pavlopoulos (Institute for Fundamental Biomedical Research, BSRC "Alexander Fleming") 
