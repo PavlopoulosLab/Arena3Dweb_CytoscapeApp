@@ -7,6 +7,7 @@ The most important setting in the dedicated dialog is choosing which node attrib
 
 ## Example
 To illustrate the interoperability between Cytoscape and Arena3D<sup>web</sup>, we used [stringApp v2.0](https://apps.cytoscape.org/apps/stringapp) and Arena3DwebApp in combination from Cytoscape. Specifically, we used the “STITCH: protein/compound query” of stringApp to search for the compound “aspirin” with a confidence score cutoff of 0.7 and up to ten additional interactors (compounds or human proteins). We then retrieved functional enrichment with stringApp and added all enriched diseases, tissues and KEGG pathways to the network. To transfer the network to Arena3D<sup>web</sup>, we opened the Arena3DwebApp dialog box. We defined the layers using the column “stringdb::node type”, chose not to consider edges as directed, and set the column “stringdb::description” for node descriptions. We then submitted this three-layer network to Arena3D<sup>web</sup> for further 3D manipulations. In the enriched_term layer, we show the three categories of enriched terms from STRING in three separate neighborhoods; KEGG pathways on top, tissues in the middle and diseases on the bottom.
+![Figure4](https://user-images.githubusercontent.com/32259775/198194572-56a0a1bb-c97f-4795-ba44-1a6e42ebb508.png)
 
 ## Developers
 Nadezhda T. Doncheva (NNF Center for Protein Research, University of Copenhagen)  
